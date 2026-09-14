@@ -52,32 +52,38 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
-    // Resources
+    // Resources Collection
     match /resources/{resourceId} {
       allow read: if true;
       allow write: if isStaff();
     }
 
-    // Blog Posts
+    // Blog Posts Collection
     match /blog_posts/{postId} {
       allow read: if true;
       allow write: if isStaff();
     }
 
-    // Broadcasts
-    match /broadcasts/{broadcastId} {
+    // Announcements Collection (Broadcasts & Banner)
+    match /announcements/{announcementId} {
       allow read: if true;
       allow write: if isStaff();
     }
 
-    // Gallery
-    match /gallery/{imageId} {
+    // Gallery Items Collection
+    match /gallery_items/{itemId} {
       allow read: if true;
       allow write: if isStaff();
     }
 
-    // Team Members
-    match /team/{memberId} {
+    // Team Members Collection
+    match /team_members/{memberId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Site Content Collection (Hero, CTA, Homepage Settings)
+    match /site_content/{contentId} {
       allow read: if true;
       allow write: if isStaff();
     }
@@ -95,18 +101,12 @@ service cloud.firestore {
       allow read, update, delete: if isStaff();
     }
 
-    // Homepage Settings
-    match /homepage_settings/{docId} {
-      allow read: if true;
-      allow write: if isStaff();
-    }
-
-    // Audit Logs
-    match /audit_logs/{logId} {
+    // Admin Audit Log
+    match /admin_audit_log/{logId} {
       allow read, write: if isStaff();
     }
 
-    // Reports
+    // Reports Collection
     match /reports/{reportId} {
       allow read, write: if isStaff();
     }
