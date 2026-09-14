@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Terminal, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 import { toast } from "sonner";
 
 const Signup = () => {
@@ -12,18 +13,14 @@ const Signup = () => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/onboarding",
-          queryParams: {
-            prompt: "select_account",
-          },
-        },
-      });
-      if (error) throw error;
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result.user) {
+        navigate("/onboarding");
+      }
     } catch (error: any) {
-      toast.error(error.message || "Failed to connect to Google");
+      if (error.code !== "auth/popup-closed-by-user") {
+        toast.error(error.message || "Failed to connect to Google");
+      }
       setLoading(false);
     }
   };

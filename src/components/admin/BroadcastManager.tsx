@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { 
   Megaphone, 
   Trash2, 
@@ -57,15 +58,16 @@ const BroadcastManager = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchAnnouncements = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("announcements")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(collection(db, "announcements"), orderBy("created_at", "desc"));
+      const snapshot = await getDocs(q);
+      setAnnouncements(snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        created_at: d.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString()
+      })) as Announcement[]);
+    } catch (err) {
       toast.error("Failed to load broadcasts");
-    } else {
-      setAnnouncements(data || []);
     }
     setLoading(false);
   };
@@ -83,36 +85,32 @@ const BroadcastManager = ({ readonly = false }: { readonly?: boolean }) => {
       expires_at: formData.expires_at || null,
     };
 
-    const { error } = await supabase
-      .from("announcements")
-      .insert([insertData]);
-
-    if (error) {
-      toast.error("Failed to create broadcast");
-    } else {
+    try {
+      await addDoc(collection(db, "announcements"), {
+        ...insertData,
+        created_at: serverTimestamp()
+      });
       const isScheduled = formData.publish_at && new Date(formData.publish_at) > new Date();
       toast.success(isScheduled ? "Broadcast scheduled!" : "Broadcast live!");
       setIsCreating(false);
       setFormData({ title: "", content: "", type: "info", is_active: true, publish_at: "", expires_at: "" });
       fetchAnnouncements();
+    } catch (err) {
+      toast.error("Failed to create broadcast");
     }
     setProcessing(null);
   };
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     setProcessing(id);
-    const { error } = await supabase
-      .from("announcements")
-      .update({ is_active: !currentStatus })
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Update failed");
-    } else {
+    try {
+      await updateDoc(doc(db, "announcements", id), { is_active: !currentStatus });
       setAnnouncements(prev => 
         prev.map(a => a.id === id ? { ...a, is_active: !currentStatus } : a)
       );
       toast.success("Broadcast status updated");
+    } catch (err) {
+      toast.error("Update failed");
     }
     setProcessing(null);
   };
@@ -121,16 +119,12 @@ const BroadcastManager = ({ readonly = false }: { readonly?: boolean }) => {
     if (!confirm("Are you sure? This will permanently remove the alert.")) return;
     
     setProcessing(id);
-    const { error } = await supabase
-      .from("announcements")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Delete failed");
-    } else {
+    try {
+      await deleteDoc(doc(db, "announcements", id));
       setAnnouncements(prev => prev.filter(a => a.id !== id));
       toast.success("Broadcast removed");
+    } catch (err) {
+      toast.error("Delete failed");
     }
     setProcessing(null);
   };

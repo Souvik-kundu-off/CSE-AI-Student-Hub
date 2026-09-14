@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink, Github, Loader2, FolderOpen } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -9,14 +10,9 @@ const FeaturedProjects = () => {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["featured_projects"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(3);
-      
-      if (error) throw error;
-      return data;
+      const q = query(collection(db, "projects"), orderBy("created_at", "desc"), limit(3));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     },
   });
 

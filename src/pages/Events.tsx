@@ -4,7 +4,8 @@ import PageLayout from "@/components/PageLayout";
 import { Calendar, MapPin, Users, Loader2, ExternalLink, Globe, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import EmptyState from "@/components/ui/EmptyState";
 
 interface EventRow {
@@ -31,13 +32,13 @@ const Events = () => {
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["events", tab],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("is_upcoming", tab === "upcoming")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as EventRow[];
+      const q = query(
+        collection(db, "events"),
+        where("is_upcoming", "==", tab === "upcoming"),
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventRow));
     },
   });
 

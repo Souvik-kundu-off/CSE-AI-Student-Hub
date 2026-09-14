@@ -4,7 +4,8 @@ import { Mail, MapPin, Phone, MessageCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 
 const Contact = () => {
@@ -21,18 +22,13 @@ const Contact = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from("contact_messages")
-        .insert([
-          {
-            name: formData.name,
-            email: formData.email,
-            subject: formData.subject,
-            message: formData.message,
-          },
-        ]);
-
-      if (error) throw error;
+      await addDoc(collection(db, "contact_messages"), {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        created_at: serverTimestamp(),
+      });
 
       toast.success("Message sent successfully! We'll get back to you soon.");
       setFormData({ name: "", email: "", subject: "", message: "" });

@@ -1,7 +1,8 @@
 import PageLayout from "@/components/PageLayout";
 import { Loader2, Megaphone, AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { format } from "date-fns";
 
 interface Announcement {
@@ -25,13 +26,13 @@ const Broadcasts = () => {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["broadcasts-public"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("announcements")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Announcement[];
+      const q = query(
+        collection(db, "announcements"),
+        where("is_active", "==", true),
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement));
     },
   });
 

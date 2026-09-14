@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import {
   Download, Loader2, Users, Layout, Calendar, Trophy, FileSpreadsheet, Megaphone, FileText, BookOpen,
 } from "lucide-react";
@@ -113,19 +114,31 @@ const ReportsPanel = ({ role }: { role?: string }) => {
     const key = config.filenamePrefix;
     setExporting(key);
     try {
-      let query = supabase.from(config.table).select(config.columns.join(","));
-      if (config.filter) query = (query as any).eq(config.filter.col, config.filter.val);
-      if (config.orderBy) query = (query as any).order(config.orderBy, { ascending: config.orderAsc ?? false });
-      else query = (query as any).order("created_at", { ascending: false });
+      const snapshot = await getDocs(collection(db, config.table));
+      let data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      const { data, error } = await query;
-      if (error) { toast.error(`Export failed: ${error.message}`); return; }
+      if (config.filter) {
+        data = data.filter((row: any) => String(row[config.filter!.col]) === String(config.filter!.val));
+      }
+      if (config.orderBy) {
+        const col = config.orderBy;
+        const asc = config.orderAsc ?? false;
+        data.sort((a: any, b: any) => {
+          const valA = a[col] ?? 0;
+          const valB = b[col] ?? 0;
+          return asc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+        });
+      }
+
       if (!data || data.length === 0) { toast.error("No data to export"); return; }
 
       const csvRows = [config.headers.join(",")];
       for (const row of data) {
         const values = config.columns.map(col => {
-          const val = (row as any)[col];
+          let val = (row as any)[col];
+          if (val && typeof val === "object" && typeof val.toDate === "function") {
+            val = val.toDate().toISOString();
+          }
           if (val === null || val === undefined) return "";
           if (Array.isArray(val)) return `"${val.join("; ")}"`;
           const str = String(val);

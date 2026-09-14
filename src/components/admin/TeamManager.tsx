@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
 import {
   Users, Plus, Trash2, Loader2, Edit3, X,
   Github, Linkedin, Twitter, GraduationCap, Crown, Search, UserPlus
@@ -76,21 +77,24 @@ const TeamManager = ({
 
   const fetchMembers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("team_members")
-      .select("*")
-      .order("sort_order", { ascending: true });
-    if (error) toast.error("Failed to load team");
-    else setMembers((data as TeamMember[]) || []);
+    try {
+      const q = query(collection(db, "team_members"), orderBy("sort_order", "asc"));
+      const snapshot = await getDocs(q);
+      setMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as TeamMember[]);
+    } catch (err) {
+      toast.error("Failed to load team");
+    }
     setLoading(false);
   };
 
   const fetchProfiles = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, programme_name, email")
-      .order("full_name", { ascending: true });
-    setProfiles((data as Profile[]) || []);
+    try {
+      const q = query(collection(db, "profiles"), orderBy("full_name", "asc"));
+      const snapshot = await getDocs(q);
+      setProfiles(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Profile[]);
+    } catch (err) {
+      console.error("Failed to fetch profiles for team manager", err);
+    }
   };
 
   const startEdit = (m: TeamMember) => {
@@ -114,28 +118,27 @@ const TeamManager = ({
     if (!form.role.trim()) { toast.error("Role/Title is required"); return; }
     setSaving(true);
 
-    // Build save data — pull name + avatar from the selected profile
-    const profile = profiles.find(p => p.id === form.profile_id);
-    const saveData = {
-      profile_id: form.profile_id || null,
-      full_name: profile?.full_name || "Unknown",
-      avatar_url: profile?.avatar_url || "",
-      department: form.department || profile?.programme_name || "",
-      role: form.role,
-      github_url: form.github_url,
-      linkedin_url: form.linkedin_url,
-      twitter_url: form.twitter_url,
-      is_faculty: form.is_faculty,
-      sort_order: editing ? form.sort_order : members.length,
-    };
+    try {
+      const profile = profiles.find(p => p.id === form.profile_id);
+      const saveData = {
+        profile_id: form.profile_id || null,
+        full_name: profile?.full_name || "Unknown",
+        avatar_url: profile?.avatar_url || "",
+        department: form.department || profile?.programme_name || "",
+        role: form.role,
+        github_url: form.github_url,
+        linkedin_url: form.linkedin_url,
+        twitter_url: form.twitter_url,
+        is_faculty: form.is_faculty,
+        sort_order: editing ? form.sort_order : members.length,
+      };
 
-    const query = editing
-      ? supabase.from("team_members").update(saveData).eq("id", editing)
-      : supabase.from("team_members").insert([saveData]);
+      if (editing) {
+        await updateDoc(doc(db, "team_members", editing), saveData);
+      } else {
+        await addDoc(collection(db, "team_members"), saveData);
+      }
 
-    const { error } = await query;
-    if (error) toast.error(error.message);
-    else {
       toast.success(editing ? "Team member updated" : "Team member added!");
       await logAdminAction({
         actionType: editing ? "UPDATE" : "CREATE",
@@ -146,21 +149,24 @@ const TeamManager = ({
       });
       cancel();
       fetchMembers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save team member");
     }
     setSaving(false);
   };
 
   const remove = async (m: TeamMember) => {
     if (!confirm(`Remove ${m.full_name} from the team page?`)) return;
-    const { error } = await supabase.from("team_members").delete().eq("id", m.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await deleteDoc(doc(db, "team_members", m.id));
       setMembers(prev => prev.filter(x => x.id !== m.id));
       toast.success("Removed from team");
       await logAdminAction({
         actionType: "DELETE", targetType: "TEAM",
         targetId: m.id, targetLabel: m.full_name, details: "Removed from team page",
       });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove member");
     }
   };
 

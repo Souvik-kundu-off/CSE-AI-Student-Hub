@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, limit, getDocs, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { 
   Trophy, 
   Layout, 
@@ -91,52 +92,46 @@ const MemberHome = () => {
 
     const fetchData = async () => {
       setLoading(true);
-      const userId = user.id;
+      const userId = user.uid;
 
-      // Fetch Profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      if (profileData) setProfile(profileData);
+      try {
+        // Fetch Profile
+        const pSnap = await getDoc(doc(db, "profiles", userId));
+        if (pSnap.exists()) setProfile({ id: pSnap.id, ...pSnap.data() } as ProfileData);
 
-      // Fetch Spotlight Project (Random approved project)
-      const { data: spotData } = await supabase
-        .from("projects")
-        .select("id, title, description, stack, author_name")
-        .eq("status", "approved")
-        .limit(10);
-      if (spotData && spotData.length > 0) {
-        setSpotlightProject(spotData[Math.floor(Math.random() * spotData.length)]);
+        // Fetch Spotlight Project
+        const spotQ = query(collection(db, "projects"), where("status", "==", "approved"), limit(10));
+        const spotSnap = await getDocs(spotQ);
+        if (!spotSnap.empty) {
+          const spotDocs = spotSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSpotlightProject(spotDocs[Math.floor(Math.random() * spotDocs.length)]);
+        }
+
+        // Fetch User's Projects
+        const myProjQ = query(collection(db, "projects"), where("author_id", "==", userId));
+        const myProjSnap = await getDocs(myProjQ);
+        const myProjects = myProjSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[];
+        myProjects.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+        setUserProjects(myProjects);
+
+        // Fetch Points History
+        const historyQ = query(collection(db, "points_history"), where("user_id", "==", userId));
+        const historySnap = await getDocs(historyQ);
+        const history = historySnap.docs.map(d => ({ id: d.id, ...d.data() })) as PointsLog[];
+        history.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+        setPointsHistory(history.slice(0, 5));
+
+        // Fetch Next Event
+        const eventQ = query(collection(db, "events"), where("is_upcoming", "==", true), limit(5));
+        const eventSnap = await getDocs(eventQ);
+        if (!eventSnap.empty) {
+          const eventDocs = eventSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Event[];
+          eventDocs.sort((a: any, b: any) => (a.date || "").localeCompare(b.date || ""));
+          setNextEvent(eventDocs[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching member home data", err);
       }
-
-      // Fetch User's Projects
-      const { data: myProjects } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("author_id", userId)
-        .order("created_at", { ascending: false });
-      if (myProjects) setUserProjects(myProjects);
-
-      // Fetch Points History
-      const { data: history } = await supabase
-        .from("points_history")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (history) setPointsHistory(history);
-
-      // Fetch Next Event
-      const { data: eventData } = await supabase
-        .from("events")
-        .select("id, title, date, type, location")
-        .eq("is_upcoming", true)
-        .order("date", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (eventData) setNextEvent(eventData);
 
       setLoading(false);
     };
@@ -144,25 +139,14 @@ const MemberHome = () => {
     void fetchData();
 
     // ── Realtime: refresh projects when admin updates status/note ──
-    const channel = supabase
-      .channel("member-home-projects")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "projects",
-          filter: `author_id=eq.${user.id}`,
-        },
-        (payload) => {
-          setUserProjects((prev) =>
-            prev.map((p) => p.id === payload.new.id ? { ...p, ...(payload.new as any) } : p)
-          );
-        }
-      )
-      .subscribe();
+    const myProjQ = query(collection(db, "projects"), where("author_id", "==", user.uid));
+    const unsubscribe = onSnapshot(myProjQ, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Project[];
+      list.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+      setUserProjects(list);
+    });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { unsubscribe(); };
   }, [authLoading, user]);
 
   const getRank = (points: number) => {

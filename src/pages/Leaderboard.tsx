@@ -1,7 +1,8 @@
 import PageLayout from "@/components/PageLayout";
 import { Trophy, Medal, Award, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
 interface Profile {
   id: string;
@@ -22,14 +23,13 @@ const Leaderboard = () => {
   const { data: topContributors = [], isLoading } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("points", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data as Profile[];
+      const q = query(
+        collection(db, "profiles"),
+        orderBy("points", "desc"),
+        limit(10)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Profile));
     },
   });
 

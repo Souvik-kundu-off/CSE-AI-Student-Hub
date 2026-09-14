@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, getDoc, updateDoc, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
+import { useAuth } from "@/contexts/AuthContext";
 import PageLayout from "@/components/PageLayout";
 import { 
   CheckCircle, 
@@ -35,6 +37,7 @@ interface Project {
 }
 
 const AdminReview = () => {
+  const { user, profile, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -42,44 +45,24 @@ const AdminReview = () => {
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (profile?.role !== "admin") {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      setIsAdmin(true);
-      fetchProjects();
-    };
-
-    checkAuth();
-  }, []);
+    if (authLoading) return;
+    if (!user || profile?.role !== "admin") {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+    setIsAdmin(true);
+    fetchProjects();
+  }, [user, profile, authLoading]);
 
   const fetchProjects = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(collection(db, "projects"), orderBy("created_at", "desc"));
+      const snap = await getDocs(q);
+      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+    } catch {
       toast.error("Failed to fetch projects");
-    } else {
-      setProjects(data || []);
     }
     setLoading(false);
   };
@@ -88,60 +71,35 @@ const AdminReview = () => {
     setProcessing(projectId);
     const note = reviewNote[projectId] || "";
 
-    const { error } = await supabase
-      .from("projects")
-      .update({ status, review_note: note })
-      .eq("id", projectId);
+    try {
+      await updateDoc(doc(db, "projects", projectId), { status, review_note: note });
 
-    if (error) {
-      toast.error(`Failed to update project: ${error.message}`);
-    } else {
       if (status === 'approved') {
         const project = projects.find(p => p.id === projectId);
         if (project) {
-          // Check if points were already awarded for this project to prevent double-awarding
-          const descPrefix = `Project Approval: ${project.title}`;
-          const { data: existingPoints } = await supabase
-            .from("points_history")
-            .select("id")
-            .eq("user_id", project.author_id)
-            .ilike("description", `${descPrefix}%`)
-            .maybeSingle();
+          // Award points
+          const profileRef = doc(db, "profiles", project.author_id);
+          const profileSnap = await getDoc(profileRef);
+          const currentPoints = profileSnap.exists() ? (profileSnap.data().points || 0) : 0;
+          const pointsToAward = 50;
 
-          if (!existingPoints) {
-            const pointsToAward = 50;
-            
-            // Get current points
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("points")
-              .eq("id", project.author_id)
-              .single();
-              
-            const currentPoints = profile?.points || 0;
+          await updateDoc(profileRef, { points: currentPoints + pointsToAward });
 
-            // Award points
-            await supabase
-              .from("profiles")
-              .update({ points: currentPoints + pointsToAward })
-              .eq("id", project.author_id);
+          await addDoc(collection(db, "points_history"), {
+            user_id: project.author_id,
+            amount: pointsToAward,
+            description: `Project Approval: ${project.title} (${project.id.substring(0, 8)})`,
+            created_at: serverTimestamp(),
+          });
 
-            // Log history with a unique identifier
-            await supabase.from("points_history").insert([{
-              user_id: project.author_id,
-              amount: pointsToAward,
-              description: `${descPrefix} (${project.id.split('-')[0]})`
-            }]);
-
-            toast.success(`Project approved! +${pointsToAward} points awarded to ${project.author_name}.`);
-          } else {
-            toast.success(`Project approved! (Points were already awarded previously)`);
-          }
+          toast.success(`Project approved! +${pointsToAward} points awarded to ${project.author_name}.`);
         }
       } else {
         toast.success(`Project ${status.replace("_", " ")} successfully!`);
       }
       fetchProjects();
+    } catch (error: any) {
+      toast.error(`Failed to update project: ${error.message}`);
     }
     setProcessing(null);
   };

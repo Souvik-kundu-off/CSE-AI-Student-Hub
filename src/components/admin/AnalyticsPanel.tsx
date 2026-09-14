@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import {
   BarChart3, Users, Layout, Trophy, Loader2, Clock, CheckCircle2,
   Calendar, Megaphone, FileText, BookOpen, BookMarked, GraduationCap,
@@ -61,23 +62,38 @@ const AdminOverviewPanel = () => {
 
   useEffect(() => {
     (async () => {
-      const [mc, pc, pend, appr, ec, profiles, recent, top, pendingP] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("projects").select("*", { count: "exact", head: true }),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "approved"),
-        supabase.from("events").select("*", { count: "exact", head: true }),
-        supabase.from("profiles").select("points"),
-        supabase.from("profiles").select("id, full_name, email, created_at").order("created_at", { ascending: false }).limit(5),
-        supabase.from("profiles").select("id, full_name, points").order("points", { ascending: false }).limit(5),
-        supabase.from("projects").select("id, title, author_name, created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(5),
-      ]);
-      const totalPoints = (profiles.data || []).reduce((s: number, p: any) => s + (p.points || 0), 0);
-      setData({
-        members: mc.count || 0, projects: pc.count || 0, pending: pend.count || 0,
-        approved: appr.count || 0, events: ec.count || 0, totalPoints,
-        recent: recent.data || [], top: top.data || [], pendingProjects: pendingP.data || [],
-      });
+      try {
+        const [profilesSnap, projectsSnap, eventsSnap] = await Promise.all([
+          getDocs(collection(db, "profiles")),
+          getDocs(collection(db, "projects")),
+          getDocs(collection(db, "events")),
+        ]);
+        const profiles = profilesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const events = eventsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const totalPoints = profiles.reduce((s: number, p: any) => s + (p.points || 0), 0);
+        const recent = [...profiles].sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 5);
+        const top = [...profiles].sort((a: any, b: any) => (b.points || 0) - (a.points || 0)).slice(0, 5);
+        const pendingProjects = projects
+          .filter((p: any) => p.status === "pending")
+          .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""))
+          .slice(0, 5);
+
+        setData({
+          members: profiles.length,
+          projects: projects.length,
+          pending: projects.filter((p: any) => p.status === "pending").length,
+          approved: projects.filter((p: any) => p.status === "approved").length,
+          events: events.length,
+          totalPoints,
+          recent,
+          top,
+          pendingProjects,
+        });
+      } catch (err) {
+        console.error("Admin analytics error", err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -101,11 +117,11 @@ const AdminOverviewPanel = () => {
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         <ListBlock title="Pending Reviews" icon={Clock} empty="All clear!"
-          items={data.pendingProjects.map((p: any) => ({ primary: p.title, secondary: `by ${p.author_name}`, meta: format(new Date(p.created_at), "MMM d") }))} />
+          items={data.pendingProjects.map((p: any) => ({ primary: p.title, secondary: `by ${p.author_name}`, meta: p.created_at ? format(new Date(p.created_at), "MMM d") : "" }))} />
         <ListBlock title="Top Members" icon={Trophy} empty="No members yet."
-          items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: "Hub member", meta: `${m.points} pts` }))} />
+          items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: "Hub member", meta: `${m.points || 0} pts` }))} />
         <ListBlock title="Recent Signups" icon={Users} empty="No new members."
-          items={data.recent.map((m: any) => ({ primary: m.full_name || "New member", secondary: m.email, meta: format(new Date(m.created_at), "MMM d") }))} />
+          items={data.recent.map((m: any) => ({ primary: m.full_name || "New member", secondary: m.email || "", meta: m.created_at ? format(new Date(m.created_at), "MMM d") : "" }))} />
       </div>
     </div>
   );
@@ -118,14 +134,23 @@ const FacultyOverviewPanel = () => {
 
   useEffect(() => {
     (async () => {
-      const [mc, pc, pend, top, recent] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "member"),
-        supabase.from("projects").select("*", { count: "exact", head: true }),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("profiles").select("id, full_name, points, programme_name").order("points", { ascending: false }).limit(8),
-        supabase.from("profiles").select("id, full_name, email, programme_name, created_at").order("created_at", { ascending: false }).limit(5),
-      ]);
-      setData({ members: mc.count || 0, projects: pc.count || 0, pending: pend.count || 0, top: top.data || [], recent: recent.data || [] });
+      try {
+        const [profilesSnap, projectsSnap] = await Promise.all([
+          getDocs(collection(db, "profiles")),
+          getDocs(collection(db, "projects")),
+        ]);
+        const profiles = profilesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const activeStudents = profiles.filter((p: any) => p.role === "member").length;
+        const pending = projects.filter((p: any) => p.status === "pending").length;
+        const top = [...profiles].sort((a: any, b: any) => (b.points || 0) - (a.points || 0)).slice(0, 8);
+        const recent = [...profiles].sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 5);
+
+        setData({ members: activeStudents, projects: projects.length, pending, top, recent });
+      } catch (err) {
+        console.error("Faculty analytics error", err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -146,9 +171,9 @@ const FacultyOverviewPanel = () => {
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <ListBlock title="🏆 Top Performers" icon={Trophy} empty="No members yet."
-          items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: m.programme_name || "Member", meta: `${m.points} pts` }))} />
+          items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: m.programme_name || "Member", meta: `${m.points || 0} pts` }))} />
         <ListBlock title="Recent Joiners" icon={Users} empty="No recent signups."
-          items={data.recent.map((m: any) => ({ primary: m.full_name || "New student", secondary: m.programme_name || m.email, meta: format(new Date(m.created_at), "MMM d") }))} />
+          items={data.recent.map((m: any) => ({ primary: m.full_name || "New student", secondary: m.programme_name || m.email, meta: m.created_at ? format(new Date(m.created_at), "MMM d") : "" }))} />
       </div>
     </div>
   );
@@ -161,13 +186,18 @@ const EventManagerOverviewPanel = () => {
 
   useEffect(() => {
     (async () => {
-      const [upcoming, past, total, recentEvents] = await Promise.all([
-        supabase.from("events").select("*", { count: "exact", head: true }).eq("is_upcoming", true),
-        supabase.from("events").select("*", { count: "exact", head: true }).eq("is_upcoming", false),
-        supabase.from("events").select("*", { count: "exact", head: true }),
-        supabase.from("events").select("id, title, date, type, spots, location, is_upcoming").order("date", { ascending: true }).limit(6),
-      ]);
-      setData({ upcoming: upcoming.count || 0, past: past.count || 0, total: total.count || 0, recentEvents: recentEvents.data || [] });
+      try {
+        const snapshot = await getDocs(collection(db, "events"));
+        const events = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const upcoming = events.filter((e: any) => e.is_upcoming).length;
+        const past = events.filter((e: any) => !e.is_upcoming).length;
+        const recentEvents = [...events].sort((a: any, b: any) => (a.date || "").localeCompare(b.date || "")).slice(0, 6);
+
+        setData({ upcoming, past, total: events.length, recentEvents });
+      } catch (err) {
+        console.error("Event manager analytics error", err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -215,14 +245,25 @@ const ContentEditorOverviewPanel = () => {
 
   useEffect(() => {
     (async () => {
-      const [published, drafts, resources, broadcasts, recentPosts] = await Promise.all([
-        supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("is_published", true),
-        supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("is_published", false),
-        supabase.from("resources").select("*", { count: "exact", head: true }),
-        supabase.from("announcements").select("*", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("blog_posts").select("id, title, category, author_name, is_published, published_at").order("published_at", { ascending: false }).limit(6),
-      ]);
-      setData({ published: published.count || 0, drafts: drafts.count || 0, resources: resources.count || 0, broadcasts: broadcasts.count || 0, recentPosts: recentPosts.data || [] });
+      try {
+        const [postsSnap, resourcesSnap, announcementsSnap] = await Promise.all([
+          getDocs(collection(db, "blog_posts")),
+          getDocs(collection(db, "resources")),
+          getDocs(collection(db, "announcements")),
+        ]);
+        const posts = postsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const resources = resourcesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const announcements = announcementsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const published = posts.filter((p: any) => p.is_published).length;
+        const drafts = posts.filter((p: any) => !p.is_published).length;
+        const broadcasts = announcements.filter((a: any) => a.is_active).length;
+        const recentPosts = [...posts].sort((a: any, b: any) => (b.published_at || "").localeCompare(a.published_at || "")).slice(0, 6);
+
+        setData({ published, drafts, resources: resources.length, broadcasts, recentPosts });
+      } catch (err) {
+        console.error("Content editor analytics error", err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -269,14 +310,23 @@ const ModeratorOverviewPanel = () => {
 
   useEffect(() => {
     (async () => {
-      const [pending, approved, rejected, changes, recentPending] = await Promise.all([
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "approved"),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "rejected"),
-        supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "changes_requested"),
-        supabase.from("projects").select("id, title, author_name, stack, created_at").eq("status", "pending").order("created_at", { ascending: true }).limit(8),
-      ]);
-      setData({ pending: pending.count || 0, approved: approved.count || 0, rejected: rejected.count || 0, changes: changes.count || 0, recentPending: recentPending.data || [] });
+      try {
+        const snapshot = await getDocs(collection(db, "projects"));
+        const projects = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const pending = projects.filter((p: any) => p.status === "pending").length;
+        const approved = projects.filter((p: any) => p.status === "approved").length;
+        const rejected = projects.filter((p: any) => p.status === "rejected").length;
+        const changes = projects.filter((p: any) => p.status === "changes_requested").length;
+        const recentPending = projects
+          .filter((p: any) => p.status === "pending")
+          .sort((a: any, b: any) => (a.created_at || "").localeCompare(b.created_at || ""))
+          .slice(0, 8);
+
+        setData({ pending, approved, rejected, changes, recentPending });
+      } catch (err) {
+        console.error("Moderator analytics error", err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -311,7 +361,7 @@ const ModeratorOverviewPanel = () => {
                   <p className="font-semibold text-sm">{p.title}</p>
                   <p className="text-xs text-muted-foreground">by {p.author_name} · {(p.stack || []).slice(0, 3).join(", ")}</p>
                 </div>
-                <span className="text-[10px] font-bold text-amber-500">{format(new Date(p.created_at), "MMM d")}</span>
+                <span className="text-[10px] font-bold text-amber-500">{p.created_at ? format(new Date(p.created_at), "MMM d") : ""}</span>
               </div>
             ))}
           </div>

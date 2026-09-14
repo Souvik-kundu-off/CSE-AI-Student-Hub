@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { auth, db } from "@/lib/firebase";
+import { collection, addDoc, query, orderBy, getDocs, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import {
   ScrollText, Search, Filter, Loader2, Shield, CheckCircle, XCircle,
   Settings, Trophy, Megaphone, User, Calendar, ChevronDown, RefreshCw,
@@ -67,24 +68,22 @@ export const logAdminAction = async ({
   details: string;
 }) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const user = auth.currentUser;
+    if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", session.user.id)
-      .single();
+    const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+    const profile = profileSnap.exists() ? profileSnap.data() : null;
 
-    await supabase.from("admin_audit_log").insert([{
-      admin_id: session.user.id,
-      admin_name: profile?.full_name || session.user.email || "Unknown",
+    await addDoc(collection(db, "admin_audit_log"), {
+      admin_id: user.uid,
+      admin_name: profile?.full_name || user.displayName || user.email || "Unknown",
       action_type: actionType,
       target_type: targetType,
       target_id: targetId,
       target_label: targetLabel,
       details,
-    }]);
+      created_at: serverTimestamp(),
+    });
   } catch (e) {
     console.error("Audit log error:", e);
   }
@@ -103,13 +102,16 @@ const AuditLog = () => {
 
   const fetchLogs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("admin_audit_log")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setEntries(data);
+    try {
+      const q = query(collection(db, "admin_audit_log"), orderBy("created_at", "desc"));
+      const snapshot = await getDocs(q);
+      setEntries(snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        created_at: d.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString()
+      })) as AuditEntry[]);
+    } catch (err) {
+      console.error("Failed to load audit logs", err);
     }
     setLoading(false);
   };

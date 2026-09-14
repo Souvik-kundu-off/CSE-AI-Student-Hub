@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Calendar, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { format, isValid, parseISO } from "date-fns";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -20,14 +21,9 @@ const FeaturedEvents = () => {
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["featured_events"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("date", { ascending: true })
-        .limit(3);
-
-      if (error) throw error;
-      return data;
+      const q = query(collection(db, "events"), orderBy("date", "asc"), limit(3));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     },
   });
 

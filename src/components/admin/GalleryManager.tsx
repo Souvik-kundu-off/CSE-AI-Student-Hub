@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import {
   Image as ImageIcon, Plus, Trash2, Loader2, GripVertical, X,
   Eye, EyeOff, Upload, FolderOpen
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { logAdminAction } from "./AuditLog";
-import CloudinaryUpload from "@/components/ui/CloudinaryUpload";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 interface GalleryItem {
   id: string;
@@ -44,13 +45,13 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchItems = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("gallery_items")
-      .select("*")
-      .order("sort_order", { ascending: true });
-
-    if (error) toast.error("Failed to load gallery");
-    else setItems(data || []);
+    try {
+      const q = query(collection(db, "gallery_items"), orderBy("sort_order", "asc"));
+      const snap = await getDocs(q);
+      setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as GalleryItem)));
+    } catch {
+      toast.error("Failed to load gallery");
+    }
     setLoading(false);
   };
 
@@ -63,11 +64,8 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
       sort_order: items.length,
     };
 
-    const { error } = await supabase.from("gallery_items").insert([insertData]);
-
-    if (error) {
-      toast.error("Failed to add image");
-    } else {
+    try {
+      await addDoc(collection(db, "gallery_items"), { ...insertData, created_at: serverTimestamp() });
       toast.success("Image added to gallery!");
       await logAdminAction({
         actionType: "CREATE",
@@ -79,21 +77,20 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
       setIsCreating(false);
       setFormData(emptyForm);
       fetchItems();
+    } catch {
+      toast.error("Failed to add image");
     }
     setProcessing(null);
   };
 
   const toggleVisibility = async (item: GalleryItem) => {
     setProcessing(item.id);
-    const { error } = await supabase
-      .from("gallery_items")
-      .update({ is_visible: !item.is_visible })
-      .eq("id", item.id);
-
-    if (error) toast.error("Update failed");
-    else {
+    try {
+      await updateDoc(doc(db, "gallery_items", item.id), { is_visible: !item.is_visible });
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_visible: !i.is_visible } : i));
       toast.success(item.is_visible ? "Hidden from gallery" : "Visible in gallery");
+    } catch {
+      toast.error("Update failed");
     }
     setProcessing(null);
   };
@@ -102,11 +99,8 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
     if (!confirm("Permanently remove this gallery image?")) return;
     setProcessing(item.id);
 
-    const { error } = await supabase.from("gallery_items").delete().eq("id", item.id);
-
-    if (error) {
-      toast.error("Delete failed");
-    } else {
+    try {
+      await deleteDoc(doc(db, "gallery_items", item.id));
       setItems(prev => prev.filter(i => i.id !== item.id));
       toast.success("Image removed");
       await logAdminAction({
@@ -116,6 +110,8 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
         targetLabel: item.title || "Gallery Image",
         details: `Removed from album: ${item.album || "Uncategorized"}`,
       });
+    } catch {
+      toast.error("Delete failed");
     }
     setProcessing(null);
   };
@@ -178,7 +174,7 @@ const GalleryManager = ({ readonly = false }: { readonly?: boolean }) => {
             </div>
 
             <div className="space-y-2">
-              <CloudinaryUpload
+              <ImageUpload
                 label="Upload Image"
                 folder="tech-hub/gallery"
                 currentUrl={formData.image_url}

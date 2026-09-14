@@ -1,7 +1,8 @@
 import PageLayout from "@/components/PageLayout";
 import { Image as ImageIcon, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import EmptyState from "@/components/ui/EmptyState";
 
 interface GalleryItem {
@@ -16,14 +17,13 @@ const Gallery = () => {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["gallery_public"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("gallery_items")
-        .select("*")
-        .eq("is_visible", true)
-        .order("sort_order", { ascending: true });
-      
-      if (error) throw error;
-      return data as GalleryItem[];
+      const q = query(
+        collection(db, "gallery_items"),
+        where("is_visible", "==", true),
+        orderBy("sort_order", "asc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as GalleryItem));
     },
   });
 

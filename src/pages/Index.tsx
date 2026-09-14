@@ -9,15 +9,15 @@ import GSCSection from "@/components/home/GSCSection";
 import CTASection from "@/components/home/CTASection";
 import Footer from "@/components/Footer";
 import { useNavigate } from "react-router-dom";
-
 import { useAuth } from "@/contexts/AuthContext";
+import { isStaff } from "@/lib/permissions";
 
 const Index = () => {
   const { session, role, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && session && role === "admin") {
+    if (!loading && session && isStaff(role)) {
       navigate("/admin", { replace: true });
     }
   }, [loading, session, role, navigate]);

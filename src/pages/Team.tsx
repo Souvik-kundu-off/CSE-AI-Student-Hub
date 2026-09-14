@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
 import { Github, Linkedin, Twitter, Loader2, Users, GraduationCap, Plus, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -115,13 +116,9 @@ const Team = () => {
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("team_members")
-        .select("*")
-        .order("sort_order", { ascending: true });
-
-      if (error) throw error;
-      return data as TeamMember[];
+      const q = query(collection(db, "team_members"), orderBy("sort_order", "asc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as TeamMember));
     },
   });
 

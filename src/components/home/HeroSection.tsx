@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const DEFAULTS: Record<string, string> = {
   hero_badge: "CSE-AI Department Pilot Launch",
@@ -22,13 +23,18 @@ const HeroSection = () => {
 
   useEffect(() => {
     const fetchContent = async () => {
-      const { data } = await supabase.from("site_content").select("*");
-      if (data && data.length > 0) {
-        const map: Record<string, string> = { ...DEFAULTS };
-        data.forEach((item: { key: string; value: string }) => {
-          if (item.value) map[item.key] = item.value;
-        });
-        setContent(map);
+      try {
+        const snapshot = await getDocs(collection(db, "site_content"));
+        if (!snapshot.empty) {
+          const map: Record<string, string> = { ...DEFAULTS };
+          snapshot.docs.forEach((d) => {
+            const item = d.data();
+            if (item.value) map[item.key || d.id] = item.value;
+          });
+          setContent(map);
+        }
+      } catch (err) {
+        console.error("HeroSection content load error", err);
       }
     };
     fetchContent();

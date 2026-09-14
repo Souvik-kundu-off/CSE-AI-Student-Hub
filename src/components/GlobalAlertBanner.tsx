@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, X, Megaphone, Info, AlertTriangle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,45 +17,29 @@ const GlobalAlertBanner = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    fetchActiveAnnouncement();
+    const q = query(collection(db, "announcements"), where("is_active", "==", true));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = new Date();
+      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Announcement[];
+      const valid = list.filter((a: any) => {
+        const pubAt = a.publish_at ? new Date(a.publish_at) : null;
+        const expAt = a.expires_at ? new Date(a.expires_at) : null;
+        if (pubAt && pubAt > now) return false;
+        if (expAt && expAt < now) return false;
+        return true;
+      });
 
-    // Subscribe to real-time updates for announcements
-    const channel = supabase
-      .channel('public:announcements')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'announcements' 
-      }, () => {
-        fetchActiveAnnouncement();
-      })
-      .subscribe();
+      if (valid.length > 0) {
+        setAnnouncement(valid[0]);
+        setIsVisible(true);
+      } else {
+        setAnnouncement(null);
+        setIsVisible(false);
+      }
+    });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => unsubscribe();
   }, []);
-
-  const fetchActiveAnnouncement = async () => {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("announcements")
-      .select("*")
-      .eq("is_active", true)
-      .or(`publish_at.is.null,publish_at.lte.${now}`)
-      .or(`expires_at.is.null,expires_at.gte.${now}`)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data) {
-      setAnnouncement(data);
-      setIsVisible(true);
-    } else {
-      setAnnouncement(null);
-      setIsVisible(false);
-    }
-  };
 
   if (!isVisible || !announcement) return null;
 

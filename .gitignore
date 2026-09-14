@@ -65,3 +65,7 @@ desktop.ini
 # AI / Context Docs
 PROJECT_CONTEXT.md
 
+# Firebase
+.firebase/
+
+

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
 import { z } from "zod";
 import { isValidGithubUrl, normalizeSocialUrl } from "@/lib/utils-url";
 import { isValidYouTubeUrl } from "@/lib/youtube-utils";
-import CloudinaryMultiUpload from "@/components/ui/CloudinaryMultiUpload";
+import ImageMultiUpload from "@/components/ui/ImageMultiUpload";
 import {
   Dialog,
   DialogContent,
@@ -67,14 +68,14 @@ const SubmitProject = () => {
   useEffect(() => {
     if (!isEdit || !user) return;
     (async () => {
-      const { data, error } = await supabase
-        .from("projects").select("*").eq("id", id).maybeSingle();
-      if (error || !data) {
+      const docSnap = await getDoc(doc(db, "projects", id!));
+      if (!docSnap.exists()) {
         toast.error("Project not found");
         navigate("/my-projects");
         return;
       }
-      if (data.author_id !== user.id) {
+      const data = docSnap.data() as any;
+      if (data.author_id !== user.uid) {
         toast.error("Not your project");
         navigate("/my-projects");
         return;
@@ -144,22 +145,22 @@ const SubmitProject = () => {
       team_members: team,
       images,
       status,
-      author_id: user.id,
+      author_id: user.uid,
       author_name: profile.full_name || "Anonymous",
     };
 
-    const query = isEdit
-      ? supabase.from("projects").update(payload).eq("id", id)
-      : supabase.from("projects").insert([payload]);
-
-    const { error } = await query;
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
+      if (isEdit) {
+        await setDoc(doc(db, "projects", id!), { ...payload, updated_at: serverTimestamp() }, { merge: true });
+      } else {
+        await addDoc(collection(db, "projects"), { ...payload, created_at: serverTimestamp() });
+      }
       toast.success(
         status === "draft" ? "Draft saved" : "Project submitted for review!"
       );
       navigate("/my-projects");
+    } catch (error: any) {
+      toast.error(error.message);
     }
     setSaving(null);
   };
@@ -372,7 +373,7 @@ const SubmitProject = () => {
           />
 
           {/* Images */}
-          <CloudinaryMultiUpload
+          <ImageMultiUpload
             images={images}
             onChange={setImages}
             maxImages={6}

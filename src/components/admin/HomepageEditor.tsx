@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import {
   Home, Save, Loader2, Eye, RotateCcw
 } from "lucide-react";
@@ -43,15 +44,17 @@ const HomepageEditor = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchContent = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("site_content")
-      .select("*");
-
-    if (!error && data) {
+    try {
+      const snapshot = await getDocs(collection(db, "site_content"));
       const map: Record<string, string> = {};
-      data.forEach((item: SiteContent) => { map[item.key] = item.value; });
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        map[data.key || d.id] = data.value;
+      });
       setContent(map);
       setOriginalContent(map);
+    } catch (err) {
+      console.error("Failed to load site content", err);
     }
     setLoading(false);
   };
@@ -69,26 +72,13 @@ const HomepageEditor = ({ readonly = false }: { readonly?: boolean }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Upsert all content keys
-      const upsertData = Object.entries(content).map(([key, value]) => ({
-        key,
-        value,
-        updated_at: new Date().toISOString(),
-      }));
-
-      for (const item of upsertData) {
-        // Check if exists
-        const { data: existing } = await supabase
-          .from("site_content")
-          .select("id")
-          .eq("key", item.key)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase.from("site_content").update({ value: item.value, updated_at: item.updated_at }).eq("key", item.key);
-        } else {
-          await supabase.from("site_content").insert([item]);
-        }
+      const entries = Object.entries(content);
+      for (const [key, value] of entries) {
+        await setDoc(doc(db, "site_content", key), {
+          key,
+          value,
+          updated_at: serverTimestamp(),
+        }, { merge: true });
       }
 
       toast.success("Homepage content saved!");
@@ -100,7 +90,7 @@ const HomepageEditor = ({ readonly = false }: { readonly?: boolean }) => {
         targetType: "HOMEPAGE",
         targetId: "site_content",
         targetLabel: "Homepage Content",
-        details: `Updated ${upsertData.length} content fields`,
+        details: `Updated ${entries.length} content fields`,
       });
     } catch (e: any) {
       toast.error("Failed to save content");

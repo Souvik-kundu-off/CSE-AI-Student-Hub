@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
 import { Search, Github, ExternalLink, Loader2, Plus, FolderOpen, User2, Eye, Heart, Image as ImageIcon, Video } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureUrl } from "@/lib/utils-url";
 import EmptyState from "@/components/ui/EmptyState";
@@ -31,52 +32,34 @@ const categories = ["All", "AI", "Web", "App", "Hardware"];
 
 const Projects = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"public" | "mine">("public");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
 
-  // ── Realtime: invalidate queries on any projects table change ──
-  useEffect(() => {
-    const channel = supabase
-      .channel("projects-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "projects" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["projects-public"] });
-          if (user?.id) queryClient.invalidateQueries({ queryKey: ["projects-mine", user.id] });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, queryClient]);
-
   const { data: publicProjects = [], isLoading: loadingPublic } = useQuery({
     queryKey: ["projects-public"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Project[];
+      const q = query(
+        collection(db, "projects"),
+        where("status", "==", "approved"),
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
     },
   });
 
   const { data: myProjects = [], isLoading: loadingMine } = useQuery({
-    queryKey: ["projects-mine", user?.id],
+    queryKey: ["projects-mine", user?.uid],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("author_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Project[];
+      const q = query(
+        collection(db, "projects"),
+        where("author_id", "==", user!.uid),
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
     },
   });
 

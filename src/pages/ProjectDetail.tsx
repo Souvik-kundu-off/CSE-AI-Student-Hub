@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import { useAuth } from "@/contexts/AuthContext";
 import PageLayout from "@/components/PageLayout";
@@ -69,60 +70,32 @@ const ProjectDetail = () => {
     // Initial load
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const docRef = doc(db, "projects", id);
+      const docSnap = await getDoc(docRef);
 
-      if (error || !data) {
+      if (!docSnap.exists()) {
         toast.error("Project not found");
         navigate("/projects");
         return;
       }
-      setProject(data as Project);
+      const data = { id: docSnap.id, ...docSnap.data() } as Project;
+      setProject(data);
       setLoading(false);
 
       // Increment view count (fire-and-forget)
-      supabase
-        .from("projects")
-        .update({ views_count: (data.views_count || 0) + 1 })
-        .eq("id", id)
-        .then(() => {});
+      updateDoc(docRef, { views_count: increment(1) }).catch(() => {});
     })();
-
-    // ── Realtime: reflect admin changes (status, review_note, etc.) instantly ──
-    const channel = supabase
-      .channel(`project-detail-${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "projects",
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          setProject((prev) => prev ? { ...prev, ...payload.new as Project } : prev);
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   const resubmit = async () => {
     if (!project) return;
     setResubmitting(true);
-    const { error } = await supabase
-      .from("projects")
-      .update({ status: "pending" })
-      .eq("id", project.id);
-    if (error) {
-      toast.error("Failed to resubmit: " + error.message);
-    } else {
+    try {
+      await updateDoc(doc(db, "projects", project.id), { status: "pending" });
       toast.success("Project resubmitted for review!");
       setProject({ ...project, status: "pending" });
+    } catch (error: any) {
+      toast.error("Failed to resubmit: " + error.message);
     }
     setResubmitting(false);
   };
@@ -142,7 +115,7 @@ const ProjectDetail = () => {
   const meta = statusMeta[project.status] || statusMeta.draft;
   const StatusIcon = meta.icon;
   const images = project.images || [];
-  const isOwner = user?.id === project.author_id;
+  const isOwner = (user?.uid || (user as any)?.id) === project.author_id;
   const canResubmit = isOwner && project.status === "changes_requested";
   const ns = noteStyle[project.status] || noteStyle.default;
 

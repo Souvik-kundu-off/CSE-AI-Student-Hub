@@ -1,7 +1,8 @@
 import PageLayout from "@/components/PageLayout";
 import { Calendar, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { format } from "date-fns";
 
 interface BlogPost {
@@ -19,14 +20,13 @@ const Blog = () => {
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["blog_posts"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("blog_posts")
-        .select("*")
-        .eq("is_published", true)
-        .order("published_at", { ascending: false });
-      
-      if (error) throw error;
-      return data as BlogPost[];
+      const q = query(
+        collection(db, "blog_posts"),
+        where("is_published", "==", true),
+        orderBy("published_at", "desc")
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
     },
   });
 

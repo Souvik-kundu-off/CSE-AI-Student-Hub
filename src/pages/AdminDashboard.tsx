@@ -145,7 +145,6 @@ const AdminDashboard = () => {
       </div>
     </PageLayout>
   );
-  return <Navigate to="/admin" replace />;
 };
 
 export default AdminDashboard;

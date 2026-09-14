@@ -1,7 +1,8 @@
 import PageLayout from "@/components/PageLayout";
 import { BookOpen, FileText, Video, Wrench, ExternalLink, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 
 interface ResourceItem {
@@ -26,13 +27,9 @@ const Resources = () => {
   const { data: resources = [], isLoading } = useQuery({
     queryKey: ["resources"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("resources")
-        .select("*")
-        .order("created_at", { ascending: true });
-      
-      if (error) throw error;
-      return data as ResourceItem[];
+      const q = query(collection(db, "resources"), orderBy("created_at", "asc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() } as ResourceItem));
     },
   });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { ensureUrl, isValidGithubUrl, isValidLinkedinUrl, normalizeSocialUrl } from "@/lib/utils-url";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -93,19 +94,14 @@ const Profile = () => {
     const normalizedLinkedin = normalizeSocialUrl(formData.linkedin_url);
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          student_code: formData.student_code,
-          programme_name: formData.programme_name,
-          phone_number: formData.phone_number,
-          github_url: normalizedGithub,
-          linkedin_url: normalizedLinkedin,
-        })
-        .eq("id", profile?.id);
-
-      if (error) throw error;
+      await updateDoc(doc(db, "profiles", profile!.id), {
+        full_name: formData.full_name,
+        student_code: formData.student_code,
+        programme_name: formData.programme_name,
+        phone_number: formData.phone_number,
+        github_url: normalizedGithub,
+        linkedin_url: normalizedLinkedin,
+      });
 
       setProfile({ ...profile!, ...formData as ProfileData, github_url: normalizedGithub, linkedin_url: normalizedLinkedin });
       setEditing(false);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { Users, Search, Trophy, Shield, ShieldCheck, PlusCircle, MinusCircle,
   Loader2, ExternalLink, Mail, MoreVertical, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -78,15 +79,12 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
 
   const fetchMembers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("points", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(collection(db, "profiles"), orderBy("points", "desc"));
+      const snapshot = await getDocs(q);
+      setMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Member[]);
+    } catch (err) {
       toast.error("Failed to load directory");
-    } else {
-      setMembers(data || []);
     }
     setLoading(false);
   };
@@ -94,25 +92,22 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
   const handlePointAdjustment = async (memberId: string, amount: number) => {
     setProcessing(memberId);
     
-    // 1. Update Profile
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ points: members.find(m => m.id === memberId)!.points + amount })
-      .eq("id", memberId);
+    try {
+      const currentPoints = members.find(m => m.id === memberId)?.points || 0;
+      await updateDoc(doc(db, "profiles", memberId), { points: currentPoints + amount });
 
-    if (profileError) {
-      toast.error("Point update failed");
-    } else {
-      // 2. Log in points_history
-      await supabase.from("points_history").insert([{
+      await addDoc(collection(db, "points_history"), {
         user_id: memberId,
         amount: amount,
         action_type: "ADMIN_ADJUSTMENT",
-        description: `Manual adjustment by Staff: ${amount > 0 ? '+' : ''}${amount} pts`
-      }]);
+        description: `Manual adjustment by Staff: ${amount > 0 ? '+' : ''}${amount} pts`,
+        created_at: serverTimestamp()
+      });
 
       setMembers(prev => prev.map(m => m.id === memberId ? { ...m, points: m.points + amount } : m));
       toast.success(`Credits adjusted: ${amount > 0 ? '+' : ''}${amount}`);
+    } catch (err) {
+      toast.error("Point update failed");
     }
     setProcessing(null);
   };
@@ -123,16 +118,12 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
     setProcessing(memberId);
     const newRole = currentRole === 'admin' ? 'member' : 'admin';
     
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: newRole })
-      .eq("id", memberId);
-
-    if (error) {
-      toast.error("Role update failed");
-    } else {
+    try {
+      await updateDoc(doc(db, "profiles", memberId), { role: newRole });
       setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
       toast.success(`Access updated to ${newRole}`);
+    } catch (err) {
+      toast.error("Role update failed");
     }
     setProcessing(null);
   };
@@ -166,28 +157,30 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
     if (!confirm(`Award ${bulkPointsAmount} points to ${selectedIds.size} selected members?`)) return;
     setProcessing("bulk");
 
-    for (const memberId of selectedIds) {
-      const member = members.find(m => m.id === memberId);
-      if (!member) continue;
+    try {
+      for (const memberId of selectedIds) {
+        const member = members.find(m => m.id === memberId);
+        if (!member) continue;
 
-      await supabase
-        .from("profiles")
-        .update({ points: member.points + bulkPointsAmount })
-        .eq("id", memberId);
+        await updateDoc(doc(db, "profiles", memberId), { points: member.points + bulkPointsAmount });
 
-      await supabase.from("points_history").insert([{
-        user_id: memberId,
-        amount: bulkPointsAmount,
-        action_type: "ADMIN_BULK_ADJUSTMENT",
-        description: `Bulk award by Overseer: +${bulkPointsAmount} pts`
-      }]);
+        await addDoc(collection(db, "points_history"), {
+          user_id: memberId,
+          amount: bulkPointsAmount,
+          action_type: "ADMIN_BULK_ADJUSTMENT",
+          description: `Bulk award by Overseer: +${bulkPointsAmount} pts`,
+          created_at: serverTimestamp()
+        });
+      }
+
+      setMembers(prev => prev.map(m => 
+        selectedIds.has(m.id) ? { ...m, points: m.points + bulkPointsAmount } : m
+      ));
+      toast.success(`Awarded ${bulkPointsAmount} pts to ${selectedIds.size} members`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error("Bulk award failed");
     }
-
-    setMembers(prev => prev.map(m => 
-      selectedIds.has(m.id) ? { ...m, points: m.points + bulkPointsAmount } : m
-    ));
-    toast.success(`Awarded ${bulkPointsAmount} pts to ${selectedIds.size} members`);
-    setSelectedIds(new Set());
     setProcessing(null);
   };
 
@@ -202,13 +195,17 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
     if (!confirm(`Change ${selectedIds.size} members to ${newRole}?`)) return;
     setProcessing("bulk");
 
-    for (const memberId of selectedIds) {
-      await supabase.from("profiles").update({ role: newRole }).eq("id", memberId);
-    }
+    try {
+      for (const memberId of selectedIds) {
+        await updateDoc(doc(db, "profiles", memberId), { role: newRole });
+      }
 
-    setMembers(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, role: newRole } : m));
-    toast.success(`${selectedIds.size} members updated to ${newRole}`);
-    setSelectedIds(new Set());
+      setMembers(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, role: newRole } : m));
+      toast.success(`${selectedIds.size} members updated to ${newRole}`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error("Bulk role change failed");
+    }
     setProcessing(null);
   };
 
@@ -385,12 +382,15 @@ const MemberManager = ({ readonly = false, canManageRoles = false }: { readonly?
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Change Role</DropdownMenuLabel>
                           {(["member","faculty","event_manager","content_editor","moderator","admin","superadmin"] as const).filter(r => r !== member.role).map(r => (
-                            <DropdownMenuItem key={r} onClick={() => {
+                            <DropdownMenuItem key={r} onClick={async () => {
                               if (!confirm(`Change ${member.full_name} to ${r}?`)) return;
-                              supabase.from("profiles").update({ role: r }).eq("id", member.id).then(({ error }) => {
-                                if (error) toast.error("Role update failed");
-                                else { setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: r } : m)); toast.success(`Role updated to ${r}`); }
-                              });
+                              try {
+                                await updateDoc(doc(db, "profiles", member.id), { role: r });
+                                setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role: r } : m));
+                                toast.success(`Role updated to ${r}`);
+                              } catch (err) {
+                                toast.error("Role update failed");
+                              }
                             }} className="gap-2 capitalize">
                               <Shield size={14} /> Set as {r.replace("_", " ")}
                             </DropdownMenuItem>

@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role;
+    }
+
+    function isStaff() {
+      return isSignedIn() && getUserRole() in ['superadmin', 'admin', 'faculty', 'event_manager', 'content_editor', 'moderator'];
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() in ['superadmin', 'admin'];
+    }
+
+    // Profiles Collection
+    match /profiles/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'member');
+      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Projects Collection
+    match /projects/{projectId} {
+      allow read: if resource.data.status == 'approved' || (isSignedIn() && (resource.data.author_id == request.auth.uid || isStaff()));
+      allow create: if isSignedIn() && request.resource.data.author_id == request.auth.uid;
+      allow update: if (isSignedIn() && resource.data.author_id == request.auth.uid && request.resource.data.author_id == request.auth.uid) || isStaff();
+      allow delete: if (isSignedIn() && resource.data.author_id == request.auth.uid) || isStaff();
+    }
+
+    // Events Collection
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Event Registrations
+    match /event_registrations/{regId} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isStaff();
+    }
+
+    // Resources
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Blog Posts
+    match /blog_posts/{postId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Broadcasts
+    match /broadcasts/{broadcastId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Gallery
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Team Members
+    match /team/{memberId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Leaderboard & Points History
+    match /points_history/{logId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isStaff() || (isSignedIn() && request.resource.data.user_id == request.auth.uid && request.resource.data.action_type == 'WELCOME_BONUS');
+      allow update, delete: if isStaff();
+    }
+
+    // Contact Messages
+    match /contact_messages/{msgId} {
+      allow create: if true;
+      allow read, update, delete: if isStaff();
+    }
+
+    // Homepage Settings
+    match /homepage_settings/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Audit Logs
+    match /audit_logs/{logId} {
+      allow read, write: if isStaff();
+    }
+
+    // Reports
+    match /reports/{reportId} {
+      allow read, write: if isStaff();
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
 import { Loader2, ClipboardList, Users, Download, ChevronDown, ChevronUp, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,15 +30,19 @@ const EventRegistrations = ({ readOnly = false }: { readOnly?: boolean }) => {
   useEffect(() => {
     (async () => {
       setLoadingEvents(true);
-      const { data, error } = await supabase
-        .from("events")
-        .select("id,title,date,event_type,form_schema")
-        .eq("event_type", "inside")
-        .order("created_at", { ascending: false });
-      if (error) toast.error("Failed to load events");
-      const list = (data as any[])?.map((e) => ({ ...e, form_schema: e.form_schema ?? [] })) || [];
-      setEvents(list);
-      if (list.length > 0) setSelectedId(list[0].id);
+      try {
+        const q = query(collection(db, "events"), where("event_type", "==", "inside"), orderBy("created_at", "desc"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          form_schema: d.data().form_schema ?? []
+        })) as EventLite[];
+        setEvents(list);
+        if (list.length > 0) setSelectedId(list[0].id);
+      } catch (err) {
+        toast.error("Failed to load events");
+      }
       setLoadingEvents(false);
     })();
   }, []);
@@ -46,13 +51,32 @@ const EventRegistrations = ({ readOnly = false }: { readOnly?: boolean }) => {
     if (!selectedId) { setRegs([]); return; }
     (async () => {
       setLoadingRegs(true);
-      const { data, error } = await supabase
-        .from("event_registrations")
-        .select("id,user_id,event_id,created_at,answers,profiles(full_name,email,avatar_url)")
-        .eq("event_id", selectedId)
-        .order("created_at", { ascending: false });
-      if (error) toast.error("Failed to load registrations");
-      else setRegs((data as any) || []);
+      try {
+        const q = query(collection(db, "event_registrations"), where("event_id", "==", selectedId), orderBy("created_at", "desc"));
+        const snapshot = await getDocs(q);
+        const rawRegs = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          created_at: d.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString()
+        }));
+
+        const userIds = [...new Set(rawRegs.map((r: any) => r.user_id).filter(Boolean))];
+        const profilesMap: Record<string, any> = {};
+        await Promise.all(userIds.map(async (uid) => {
+          const pSnap = await getDoc(doc(db, "profiles", uid));
+          if (pSnap.exists()) {
+            profilesMap[uid] = pSnap.data();
+          }
+        }));
+
+        const list = rawRegs.map((r: any) => ({
+          ...r,
+          profiles: profilesMap[r.user_id] || null
+        })) as Registration[];
+        setRegs(list);
+      } catch (err) {
+        toast.error("Failed to load registrations");
+      }
       setLoadingRegs(false);
     })();
   }, [selectedId]);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import {
   FileText, Plus, Trash2, Loader2, Edit3, Eye, EyeOff,
   Clock, CheckCircle2, X, Calendar
@@ -52,12 +53,17 @@ const BlogManager = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchPosts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .order("published_at", { ascending: false });
-    if (error) toast.error(`Failed to load blog posts: ${error.message}`);
-    else setPosts((data as BlogPost[]) || []);
+    try {
+      const q = query(collection(db, "blog_posts"), orderBy("published_at", "desc"));
+      const snapshot = await getDocs(q);
+      setPosts(snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        published_at: d.data().published_at?.toDate?.()?.toISOString() || d.data().published_at || new Date().toISOString()
+      })) as BlogPost[]);
+    } catch (err: any) {
+      toast.error(`Failed to load blog posts: ${err.message}`);
+    }
     setLoading(false);
   };
 
@@ -80,18 +86,21 @@ const BlogManager = ({ readonly = false }: { readonly?: boolean }) => {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
     setSaving(true);
 
-    const saveData = {
-      ...form,
-      published_at: form.is_published ? new Date().toISOString() : null,
-    };
+    try {
+      const saveData = {
+        ...form,
+        published_at: form.is_published ? new Date().toISOString() : null,
+      };
 
-    const query = editing
-      ? supabase.from("blog_posts").update(saveData).eq("id", editing)
-      : supabase.from("blog_posts").insert([saveData]);
+      if (editing) {
+        await updateDoc(doc(db, "blog_posts", editing), saveData);
+      } else {
+        await addDoc(collection(db, "blog_posts"), {
+          ...saveData,
+          created_at: serverTimestamp(),
+        });
+      }
 
-    const { error } = await query;
-    if (error) toast.error(error.message);
-    else {
       toast.success(editing ? "Post updated" : "Post published!");
       await logAdminAction({
         actionType: editing ? "UPDATE" : "CREATE",
@@ -102,31 +111,29 @@ const BlogManager = ({ readonly = false }: { readonly?: boolean }) => {
       });
       cancel();
       fetchPosts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save post");
     }
     setSaving(false);
   };
 
   const togglePublish = async (post: BlogPost) => {
-    const { error } = await supabase
-      .from("blog_posts")
-      .update({
+    try {
+      await updateDoc(doc(db, "blog_posts", post.id), {
         is_published: !post.is_published,
         published_at: !post.is_published ? new Date().toISOString() : post.published_at
-      })
-      .eq("id", post.id);
-
-    if (error) toast.error("Failed to update post");
-    else {
+      });
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_published: !p.is_published } : p));
       toast.success(post.is_published ? "Unpublished" : "Published!");
+    } catch (err: any) {
+      toast.error("Failed to update post");
     }
   };
 
   const remove = async (post: BlogPost) => {
     if (!confirm("Delete this blog post permanently?")) return;
-    const { error } = await supabase.from("blog_posts").delete().eq("id", post.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await deleteDoc(doc(db, "blog_posts", post.id));
       setPosts(prev => prev.filter(p => p.id !== post.id));
       toast.success("Post deleted");
       await logAdminAction({
@@ -136,6 +143,8 @@ const BlogManager = ({ readonly = false }: { readonly?: boolean }) => {
         targetLabel: post.title,
         details: "Blog post permanently removed",
       });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete post");
     }
   };
 

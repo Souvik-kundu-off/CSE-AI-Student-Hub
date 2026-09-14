@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import { 
   CheckCircle, 
@@ -49,15 +50,12 @@ const ProjectModeration = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchProjects = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(collection(db, "projects"), orderBy("created_at", "desc"));
+      const snap = await getDocs(q);
+      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+    } catch {
       toast.error("Failed to fetch projects");
-    } else {
-      setProjects(data || []);
     }
     setLoading(false);
   };
@@ -66,16 +64,12 @@ const ProjectModeration = ({ readonly = false }: { readonly?: boolean }) => {
     setProcessing(projectId);
     const note = reviewNote[projectId] || "";
 
-    const { error } = await supabase
-      .from("projects")
-      .update({ status, review_note: note })
-      .eq("id", projectId);
-
-    if (error) {
-      toast.error(`Failed to update project: ${error.message}`);
-    } else {
+    try {
+      await updateDoc(doc(db, "projects", projectId), { status, review_note: note });
       toast.success(`Project ${status} successfully!`);
       setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status, review_note: note } : p));
+    } catch (error: any) {
+      toast.error(`Failed to update project: ${error.message}`);
     }
     setProcessing(null);
   };
@@ -84,13 +78,12 @@ const ProjectModeration = ({ readonly = false }: { readonly?: boolean }) => {
     if (!confirm("Are you sure? This will remove the project permanently.")) return;
     
     setProcessing(projectId);
-    const { error } = await supabase.from("projects").delete().eq("id", projectId);
-    
-    if (error) {
-      toast.error("Deletion failed");
-    } else {
+    try {
+      await deleteDoc(doc(db, "projects", projectId));
       toast.success("Project removed");
       setProjects(prev => prev.filter(p => p.id !== projectId));
+    } catch {
+      toast.error("Deletion failed");
     }
     setProcessing(null);
   };

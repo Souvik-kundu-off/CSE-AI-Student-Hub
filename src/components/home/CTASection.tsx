@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const DEFAULTS: Record<string, string> = {
   cta_headline: "Join the CSE-AI Student Hub",
@@ -14,16 +15,21 @@ const CTASection = () => {
 
   useEffect(() => {
     const fetchContent = async () => {
-      const { data } = await supabase
-        .from("site_content")
-        .select("*")
-        .in("key", ["cta_headline", "cta_subtext"]);
-      if (data && data.length > 0) {
-        const map: Record<string, string> = { ...DEFAULTS };
-        data.forEach((item: { key: string; value: string }) => {
-          if (item.value) map[item.key] = item.value;
-        });
-        setContent(map);
+      try {
+        const snapshot = await getDocs(collection(db, "site_content"));
+        if (!snapshot.empty) {
+          const map: Record<string, string> = { ...DEFAULTS };
+          snapshot.docs.forEach((d) => {
+            const item = d.data();
+            const key = item.key || d.id;
+            if (item.value && (key === "cta_headline" || key === "cta_subtext")) {
+              map[key] = item.value;
+            }
+          });
+          setContent(map);
+        }
+      } catch (err) {
+        console.error("CTASection content load error", err);
       }
     };
     fetchContent();

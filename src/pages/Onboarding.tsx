@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, User, BookOpen, Hash, Phone, Mail, Github, Linkedin, CheckCircle2 } from "lucide-react";
-
 import { isValidGithubUrl, isValidLinkedinUrl, normalizeSocialUrl } from "@/lib/utils-url";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { session, profile, loading: authLoading, refreshProfile } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     full_name: "",
@@ -25,7 +25,7 @@ const Onboarding = () => {
   });
 
   useEffect(() => {
-    if (!authLoading && !session) {
+    if (!authLoading && !user) {
       navigate("/login");
       return;
     }
@@ -35,14 +35,14 @@ const Onboarding = () => {
       return;
     }
 
-    if (profile) {
+    if (user) {
       setFormData(prev => ({
         ...prev,
-        email: session?.user?.email || prev.email,
-        full_name: profile.full_name || prev.full_name,
+        email: user.email || prev.email,
+        full_name: profile?.full_name || user.displayName || prev.full_name,
       }));
     }
-  }, [authLoading, session, profile, navigate]);
+  }, [authLoading, user, profile, navigate]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,27 +61,41 @@ const Onboarding = () => {
     setSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       const normalizedGithub = normalizeSocialUrl(formData.github_url);
       const normalizedLinkedin = normalizeSocialUrl(formData.linkedin_url);
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: user.id,
-          full_name: formData.full_name,
-          student_code: formData.student_code,
-          programme_name: formData.programme_name,
-          phone_number: formData.phone_number,
-          github_url: normalizedGithub,
-          linkedin_url: normalizedLinkedin,
+      const isFirstTime = !profile || profile.points === undefined || profile.points === 0;
+      const initialPoints = isFirstTime ? 10 : profile.points;
+
+      await setDoc(doc(db, "profiles", user.uid), {
+        full_name: formData.full_name,
+        email: user.email || "",
+        avatar_url: user.photoURL || "",
+        student_code: formData.student_code,
+        programme_name: formData.programme_name,
+        phone_number: formData.phone_number,
+        github_url: normalizedGithub,
+        linkedin_url: normalizedLinkedin,
+        role: profile?.role || "member",
+        points: initialPoints,
+        projects_count: profile?.projects_count || 0,
+        wins_count: profile?.wins_count || 0,
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
+
+      if (isFirstTime) {
+        await addDoc(collection(db, "points_history"), {
+          user_id: user.uid,
+          amount: 10,
+          action_type: "WELCOME_BONUS",
+          description: "Welcome bonus for completing Hub registration!",
+          created_at: serverTimestamp()
         });
+      }
 
-      if (error) throw error;
-
-      console.log("Onboarding: Profile saved, refreshing...");
+      console.log("Onboarding: Profile saved to Firestore, refreshing...");
       await refreshProfile();
       
       // Add a small delay for state to permeate

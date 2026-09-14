@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import { 
   BookOpen, 
@@ -56,15 +57,12 @@ const ResourceManager = ({ readonly = false }: { readonly?: boolean }) => {
 
   const fetchResources = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("resources")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(collection(db, "resources"), orderBy("created_at", "desc"));
+      const snap = await getDocs(q);
+      setResources(snap.docs.map(d => ({ id: d.id, ...d.data() } as Resource)));
+    } catch {
       toast.error("Failed to load resources");
-    } else {
-      setResources(data || []);
     }
     setLoading(false);
   };
@@ -73,17 +71,14 @@ const ResourceManager = ({ readonly = false }: { readonly?: boolean }) => {
     e.preventDefault();
     setProcessing("create");
 
-    const { error } = await supabase
-      .from("resources")
-      .insert([formData]);
-
-    if (error) {
-      toast.error("Failed to add resource");
-    } else {
+    try {
+      await addDoc(collection(db, "resources"), { ...formData, created_at: serverTimestamp() });
       toast.success("Resource added successfully!");
       setIsCreating(false);
       setFormData({ title: "", description: "", url: "", type: "tool", category: "" });
       fetchResources();
+    } catch {
+      toast.error("Failed to add resource");
     }
     setProcessing(null);
   };
@@ -92,16 +87,12 @@ const ResourceManager = ({ readonly = false }: { readonly?: boolean }) => {
     if (!confirm("Permanently remove this resource?")) return;
     
     setProcessing(id);
-    const { error } = await supabase
-      .from("resources")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Deletion failed");
-    } else {
+    try {
+      await deleteDoc(doc(db, "resources", id));
       toast.success("Resource removed");
       setResources(prev => prev.filter(r => r.id !== id));
+    } catch {
+      toast.error("Deletion failed");
     }
     setProcessing(null);
   };

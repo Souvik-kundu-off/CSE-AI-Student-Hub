@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import CloudinaryUpload from "@/components/ui/CloudinaryUpload";
-import { supabase } from "@/lib/supabase";
+import ImageUpload from "@/components/ui/ImageUpload";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -89,9 +90,18 @@ const EventManager = ({ readOnly = false }: { readOnly?: boolean }) => {
 
   const fetchEvents = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: false });
-    if (error) toast.error("Failed to load events");
-    else setEvents((data as any[])?.map((e) => ({ ...e, form_schema: e.form_schema ?? [] })) || []);
+    try {
+      const q = query(collection(db, "events"), orderBy("created_at", "desc"));
+      const snapshot = await getDocs(q);
+      const list = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        created_at: d.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      })) as EventRow[];
+      setEvents(list.map((e) => ({ ...e, form_schema: e.form_schema ?? [] })));
+    } catch (err: any) {
+      toast.error("Failed to load events");
+    }
     setLoading(false);
   };
 
@@ -121,24 +131,32 @@ const EventManager = ({ readOnly = false }: { readOnly?: boolean }) => {
       if (!confirm("This inside event has no registration questions. Members will only submit their identity. Continue?")) return;
     }
     setSaving(true);
-    const payload = { ...form, form_schema: form.form_schema as any };
-    const query = editing
-      ? supabase.from("events").update(payload).eq("id", editing)
-      : supabase.from("events").insert([payload]);
-    const { error } = await query;
-    if (error) toast.error(error.message);
-    else {
+    try {
+      const payload = { ...form, form_schema: form.form_schema as any };
+      if (editing) {
+        await updateDoc(doc(db, "events", editing), payload);
+      } else {
+        await addDoc(collection(db, "events"), {
+          ...payload,
+          created_at: serverTimestamp(),
+        });
+      }
       toast.success(editing ? "Event updated" : "Event created");
       cancel(); fetchEvents();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save event");
     }
     setSaving(false);
   };
 
   const remove = async (id: string) => {
     if (!confirm("Delete this event permanently?")) return;
-    const { error } = await supabase.from("events").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else { toast.success("Deleted"); setEvents((e) => e.filter((x) => x.id !== id)); }
+    try {
+      await deleteDoc(doc(db, "events", id));
+      toast.success("Deleted"); setEvents((e) => e.filter((x) => x.id !== id));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete");
+    }
   };
 
   // ---- form builder helpers ----
@@ -247,7 +265,7 @@ const EventManager = ({ readOnly = false }: { readOnly?: boolean }) => {
               <Input type="number" value={form.spots} onChange={(e) => setForm({ ...form, spots: parseInt(e.target.value) || 0 })} />
             </Field>
             <div className="md:col-span-2">
-              <CloudinaryUpload
+              <ImageUpload
                 label="Event Banner"
                 folder="tech-hub/events"
                 currentUrl={form.banner_url || undefined}

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageLayout from "@/components/PageLayout";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,9 +54,10 @@ const EventDetail = () => {
     if (!id) return;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase.from("events").select("*").eq("id", id).maybeSingle();
-      if (error || !data) { toast.error("Event not found"); navigate("/events"); return; }
-      setEvent({ ...(data as any), form_schema: (data as any).form_schema ?? [] });
+      const docSnap = await getDoc(doc(db, "events", id));
+      if (!docSnap.exists()) { toast.error("Event not found"); navigate("/events"); return; }
+      const data = docSnap.data() as any;
+      setEvent({ id: docSnap.id, ...data, form_schema: data.form_schema ?? [] });
       setLoading(false);
     })();
   }, [id, navigate]);
@@ -63,13 +65,13 @@ const EventDetail = () => {
   useEffect(() => {
     if (!user || !id) return;
     (async () => {
-      const { data } = await supabase
-        .from("event_registrations")
-        .select("id")
-        .eq("event_id", id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setRegistered(!!data);
+      const q = query(
+        collection(db, "event_registrations"),
+        where("event_id", "==", id),
+        where("user_id", "==", user.uid)
+      );
+      const snap = await getDocs(q);
+      setRegistered(!snap.empty);
     })();
   }, [user, id]);
 
@@ -103,14 +105,17 @@ const EventDetail = () => {
     }
 
     setSubmitting(true);
-    const { error } = await supabase
-      .from("event_registrations")
-      .insert({ event_id: event.id, user_id: user.id, answers });
-    if (error) {
-      toast.error(error.message.includes("duplicate") ? "You are already registered" : error.message);
-    } else {
+    try {
+      await addDoc(collection(db, "event_registrations"), {
+        event_id: event.id,
+        user_id: user.uid,
+        answers,
+        created_at: serverTimestamp(),
+      });
       toast.success("Registered successfully!");
       setRegistered(true);
+    } catch (error: any) {
+      toast.error(error.message || "Registration failed");
     }
     setSubmitting(false);
   };

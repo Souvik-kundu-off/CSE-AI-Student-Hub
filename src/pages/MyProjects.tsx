@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import { useAuth } from "@/contexts/AuthContext";
 import PageLayout from "@/components/PageLayout";
@@ -47,58 +48,44 @@ const MyProjects = () => {
     if (authLoading) return;
     if (!user) { navigate("/login"); return; }
     fetchProjects();
-
-    // ── Realtime: re-fetch when any of this user's projects change ──
-    const channel = supabase
-      .channel("my-projects-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "projects",
-          filter: `author_id=eq.${user.id}`,
-        },
-        () => fetchProjects()
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, [user, authLoading]);
 
   const fetchProjects = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("author_id", user!.id)
-      .order("created_at", { ascending: false });
-    if (error) toast.error("Failed to load projects");
-    else setProjects(data || []);
+    try {
+      const q = query(
+        collection(db, "projects"),
+        where("author_id", "==", user!.uid),
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+    } catch {
+      toast.error("Failed to load projects");
+    }
     setLoading(false);
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await deleteDoc(doc(db, "projects", id));
       toast.success("Project deleted");
       setProjects((p) => p.filter((x) => x.id !== id));
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
   const handleResubmit = async (id: string) => {
-    const { error } = await supabase
-      .from("projects")
-      .update({ status: "pending" })
-      .eq("id", id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await updateDoc(doc(db, "projects", id), { status: "pending" });
       toast.success("Project resubmitted for review!");
       setProjects((prev) =>
         prev.map((p) => p.id === id ? { ...p, status: "pending" } : p)
       );
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
