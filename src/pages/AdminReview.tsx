@@ -76,18 +76,20 @@ const AdminReview = () => {
 
       if (status === 'approved') {
         const project = projects.find(p => p.id === projectId);
-        if (project) {
-          // Award points
+        if (project && project.status !== 'approved') {
+          // Award points and project count
           const profileRef = doc(db, "profiles", project.author_id);
-          const profileSnap = await getDoc(profileRef);
-          const currentPoints = profileSnap.exists() ? (profileSnap.data().points || 0) : 0;
           const pointsToAward = 50;
 
-          await updateDoc(profileRef, { points: currentPoints + pointsToAward });
+          await updateDoc(profileRef, {
+            points: increment(pointsToAward),
+            projects_count: increment(1)
+          });
 
           await addDoc(collection(db, "points_history"), {
             user_id: project.author_id,
             amount: pointsToAward,
+            action_type: "PROJECT_APPROVED",
             description: `Project Approval: ${project.title} (${project.id.substring(0, 8)})`,
             created_at: serverTimestamp(),
           });

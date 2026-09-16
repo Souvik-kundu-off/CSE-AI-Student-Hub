@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, doc, getDoc, updateDoc, deleteDoc, addDoc, increment, serverTimestamp } from "firebase/firestore";
 import { ensureUrl } from "@/lib/utils-url";
 import {
   CheckCircle,
@@ -53,21 +53,87 @@ const ProjectModeration = ({ readonly = false }: { readonly?: boolean }) => {
     try {
       const q = query(collection(db, "projects"), orderBy("created_at", "desc"));
       const snap = await getDocs(q);
-      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      setProjects(list);
+
+      // Auto-sync existing approved projects points and count to author profiles
+      const approvedCounts: Record<string, number> = {};
+      list.forEach(p => {
+        if (p.status === "approved" && p.author_id) {
+          approvedCounts[p.author_id] = (approvedCounts[p.author_id] || 0) + 1;
+        }
+      });
+
+      Object.entries(approvedCounts).forEach(async ([authorId, count]) => {
+        try {
+          const profRef = doc(db, "profiles", authorId);
+          const profSnap = await getDoc(profRef);
+          if (profSnap.exists()) {
+            const data = profSnap.data();
+            const currentCount = data.projects_count || 0;
+            if (currentCount < count) {
+              const diff = count - currentCount;
+              await updateDoc(profRef, {
+                projects_count: count,
+                points: increment(diff * 50)
+              });
+            }
+          }
+        } catch {
+          // ignore background sync errors
+        }
+      });
     } catch {
       toast.error("Failed to fetch projects");
     }
     setLoading(false);
   };
 
-  const handleUpdateStatus = async (projectId: string, status: string) => {
+  const handleUpdateStatus = async (projectId: string, newStatus: string) => {
     setProcessing(projectId);
     const note = reviewNote[projectId] || "";
+    const targetProject = projects.find(p => p.id === projectId);
 
     try {
-      await updateDoc(doc(db, "projects", projectId), { status, review_note: note });
-      toast.success(`Project ${status} successfully!`);
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status, review_note: note } : p));
+      await updateDoc(doc(db, "projects", projectId), { status: newStatus, review_note: note });
+
+      if (targetProject && targetProject.author_id) {
+        const oldStatus = targetProject.status;
+        const authorId = targetProject.author_id;
+        const profileRef = doc(db, "profiles", authorId);
+
+        if (newStatus === "approved" && oldStatus !== "approved") {
+          // Award +50 points & +1 project count to author profile
+          await updateDoc(profileRef, {
+            points: increment(50),
+            projects_count: increment(1),
+          });
+
+          await addDoc(collection(db, "points_history"), {
+            user_id: authorId,
+            amount: 50,
+            action_type: "PROJECT_APPROVED",
+            description: `Project Approved: ${targetProject.title || "Project"}`,
+            created_at: serverTimestamp(),
+          });
+
+          toast.success(`Project approved! +50 points awarded to ${targetProject.author_name || "author"}.`);
+        } else if (oldStatus === "approved" && newStatus !== "approved") {
+          // Deduct points & project count if unapproved
+          await updateDoc(profileRef, {
+            points: increment(-50),
+            projects_count: increment(-1),
+          });
+
+          toast.success(`Project status changed from approved to ${newStatus}. Points adjusted.`);
+        } else {
+          toast.success(`Project ${newStatus.replace("_", " ")} successfully!`);
+        }
+      } else {
+        toast.success(`Project ${newStatus.replace("_", " ")} successfully!`);
+      }
+
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus, review_note: note } : p));
     } catch (error: any) {
       toast.error(`Failed to update project: ${error.message}`);
     }

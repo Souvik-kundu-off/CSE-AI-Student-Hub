@@ -16,12 +16,6 @@ const Index = () => {
   const { session, role, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && session && isStaff(role)) {
-      navigate("/admin", { replace: true });
-    }
-  }, [loading, session, role, navigate]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

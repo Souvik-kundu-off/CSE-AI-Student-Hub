@@ -40,7 +40,7 @@ const Leaderboard = () => {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5">Leaderboard</p>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Top contributors.</h1>
           <p className="text-muted-foreground text-[15px] max-w-md mx-auto">
-            Recognizing members who've made the biggest impact through projects, contributions, and wins.
+            Recognizing members who've made the biggest impact through projects and contributions.
           </p>
         </div>
       </section>
@@ -73,7 +73,7 @@ const Leaderboard = () => {
                         <RankIcon rank={rank} />
                       </div>
                       <h3 className="font-semibold text-sm mt-1.5 line-clamp-1">{c.full_name}</h3>
-                      <p className="text-xl font-bold text-primary mt-1">{c.points}</p>
+                      <p className="text-xl font-bold text-primary mt-1">{c.points || 0}</p>
                       <p className="text-[11px] text-muted-foreground">points</p>
                     </div>
                   );
@@ -82,24 +82,22 @@ const Leaderboard = () => {
 
               {/* Table */}
               <div className="border border-border rounded-lg overflow-x-auto">
-                <div className="min-w-[500px]">
-                  <div className="grid grid-cols-[40px_1fr_80px_80px_80px] gap-4 px-4 py-2.5 bg-accent text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                <div className="min-w-[450px]">
+                  <div className="grid grid-cols-[40px_1fr_100px_100px] gap-4 px-4 py-2.5 bg-accent text-xs text-muted-foreground font-medium uppercase tracking-wider">
                     <span>#</span>
                     <span>Member</span>
                     <span className="text-right">Points</span>
                     <span className="text-right">Projects</span>
-                    <span className="text-right">Wins</span>
                   </div>
                   {topContributors.map((c, i) => (
                     <div
                       key={c.id}
-                      className="grid grid-cols-[40px_1fr_80px_80px_80px] gap-4 px-4 py-3 border-t border-border items-center hover:bg-accent/50 transition-colors"
+                      className="grid grid-cols-[40px_1fr_100px_100px] gap-4 px-4 py-3 border-t border-border items-center hover:bg-accent/50 transition-colors"
                     >
                       <RankIcon rank={i + 1} />
                       <span className="text-sm font-medium truncate">{c.full_name}</span>
-                      <span className="text-sm text-right text-primary font-semibold">{c.points}</span>
-                      <span className="text-sm text-right text-muted-foreground">{c.projects_count}</span>
-                      <span className="text-sm text-right text-muted-foreground">{c.wins_count}</span>
+                      <span className="text-sm text-right text-primary font-semibold">{c.points || 0}</span>
+                      <span className="text-sm text-right text-muted-foreground">{c.projects_count || 0}</span>
                     </div>
                   ))}
                 </div>
