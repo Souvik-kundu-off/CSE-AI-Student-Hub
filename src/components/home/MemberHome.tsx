@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
+import { compareDates } from "@/lib/utils";
 
 interface ProfileData {
   id: string;
@@ -111,14 +112,14 @@ const MemberHome = () => {
         const myProjQ = query(collection(db, "projects"), where("author_id", "==", userId));
         const myProjSnap = await getDocs(myProjQ);
         const myProjects = myProjSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[];
-        myProjects.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+        myProjects.sort((a, b) => compareDates(a.created_at, b.created_at));
         setUserProjects(myProjects);
 
         // Fetch Points History
         const historyQ = query(collection(db, "points_history"), where("user_id", "==", userId));
         const historySnap = await getDocs(historyQ);
         const history = historySnap.docs.map(d => ({ id: d.id, ...d.data() })) as PointsLog[];
-        history.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+        history.sort((a, b) => compareDates(a.created_at, b.created_at));
         setPointsHistory(history.slice(0, 5));
 
         // Fetch Next Event
@@ -126,7 +127,7 @@ const MemberHome = () => {
         const eventSnap = await getDocs(eventQ);
         if (!eventSnap.empty) {
           const eventDocs = eventSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Event[];
-          eventDocs.sort((a: any, b: any) => (a.date || "").localeCompare(b.date || ""));
+          eventDocs.sort((a, b) => compareDates(a.date, b.date, false));
           setNextEvent(eventDocs[0]);
         }
       } catch (err) {
@@ -142,7 +143,7 @@ const MemberHome = () => {
     const myProjQ = query(collection(db, "projects"), where("author_id", "==", user.uid));
     const unsubscribe = onSnapshot(myProjQ, (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Project[];
-      list.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
+      list.sort((a, b) => compareDates(a.created_at, b.created_at));
       setUserProjects(list);
     });
 

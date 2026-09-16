@@ -3,7 +3,7 @@ import { Loader2, Megaphone, AlertCircle, AlertTriangle, CheckCircle2, Info } fr
 import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/utils";
 
 interface Announcement {
   id: string;
@@ -28,11 +28,15 @@ const Broadcasts = () => {
     queryFn: async () => {
       const q = query(
         collection(db, "announcements"),
-        where("is_active", "==", true),
-        orderBy("created_at", "desc")
+        where("is_active", "==", true)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement));
+      return list.sort((a: any, b: any) => {
+        const tA = a.created_at?.seconds || (typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0);
+        const tB = b.created_at?.seconds || (typeof b.created_at === 'string' ? new Date(b.created_at).getTime() : 0);
+        return tB - tA;
+      });
     },
   });
 
@@ -74,9 +78,10 @@ const Broadcasts = () => {
                           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{meta.label}</span>
                         </div>
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{a.content}</p>
-                        <p className="text-[11px] text-muted-foreground mt-3">
-                          {format(new Date(a.created_at), "MMM d, yyyy · h:mm a")}
-                        </p>
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-3">
+                          <Clock size={12} />
+                          {safeFormatDate(a.created_at, "MMM d, yyyy · h:mm a")}
+                        </span>
                       </div>
                     </div>
                   </article>

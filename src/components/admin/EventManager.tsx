@@ -123,6 +123,7 @@ const EventManager = ({ readOnly = false }: { readOnly?: boolean }) => {
 
   const save = async () => {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
+    if (!form.banner_url.trim()) { toast.error("Please upload an event banner image"); return; }
     if (form.event_type === "outside" && !form.external_url.trim()) {
       toast.error("Outside events need an external registration link");
       return;

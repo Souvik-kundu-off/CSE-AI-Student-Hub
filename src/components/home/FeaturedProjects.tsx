@@ -84,8 +84,34 @@ const FeaturedProjects = () => {
                 <div className="flex items-center justify-between pt-3 border-t border-border">
                   <span className="text-xs text-muted-foreground">{p.author_name || "Club Member"}</span>
                   <div className="flex gap-2">
-                    {p.github_url && <a href={ensureUrl(p.github_url)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-foreground transition-colors"><Github className="w-3.5 h-3.5" /></a>}
-                    {p.live_url && <a href={ensureUrl(p.live_url)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:text-foreground transition-colors"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                    {p.github_url && (
+                      <button
+                        type="button"
+                        title="GitHub Repository"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(ensureUrl(p.github_url), "_blank", "noopener,noreferrer");
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                      >
+                        <Github className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {p.live_url && (
+                      <button
+                        type="button"
+                        title="Live Demo"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(ensureUrl(p.live_url), "_blank", "noopener,noreferrer");
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 </div>

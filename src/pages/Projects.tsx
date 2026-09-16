@@ -41,11 +41,15 @@ const Projects = () => {
     queryFn: async () => {
       const q = query(
         collection(db, "projects"),
-        where("status", "==", "approved"),
-        orderBy("created_at", "desc")
+        where("status", "==", "approved")
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      return list.sort((a: any, b: any) => {
+        const tA = a.created_at?.seconds || (typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0);
+        const tB = b.created_at?.seconds || (typeof b.created_at === 'string' ? new Date(b.created_at).getTime() : 0);
+        return tB - tA;
+      });
     },
   });
 
@@ -55,11 +59,15 @@ const Projects = () => {
     queryFn: async () => {
       const q = query(
         collection(db, "projects"),
-        where("author_id", "==", user!.uid),
-        orderBy("created_at", "desc")
+        where("author_id", "==", user!.uid)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      return list.sort((a: any, b: any) => {
+        const tA = a.created_at?.seconds || (typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0);
+        const tB = b.created_at?.seconds || (typeof b.created_at === 'string' ? new Date(b.created_at).getTime() : 0);
+        return tB - tA;
+      });
     },
   });
 
@@ -210,21 +218,35 @@ const Projects = () => {
                           </span>
                         )}
                       </div>
-                      {/* External link icons — stop propagation so they don't trigger the card Link */}
+                      {/* External link icons — button handlers to avoid nested <a> tags */}
                       <div className="flex gap-2 shrink-0">
                         {p.github_url && (
-                          <a href={ensureUrl(p.github_url)} target="_blank" rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-muted-foreground hover:text-foreground">
+                          <button
+                            type="button"
+                            title="GitHub Repository"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(ensureUrl(p.github_url), "_blank", "noopener,noreferrer");
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-0.5"
+                          >
                             <Github className="w-3.5 h-3.5" />
-                          </a>
+                          </button>
                         )}
                         {p.live_url && (
-                          <a href={ensureUrl(p.live_url)} target="_blank" rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-muted-foreground hover:text-foreground">
+                          <button
+                            type="button"
+                            title="Live Demo"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(ensureUrl(p.live_url), "_blank", "noopener,noreferrer");
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-0.5"
+                          >
                             <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>

@@ -3,7 +3,7 @@ import { Calendar, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/utils";
 
 interface BlogPost {
   id: string;
@@ -22,11 +22,15 @@ const Blog = () => {
     queryFn: async () => {
       const q = query(
         collection(db, "blog_posts"),
-        where("is_published", "==", true),
-        orderBy("published_at", "desc")
+        where("is_published", "==", true)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+      return list.sort((a: any, b: any) => {
+        const tA = a.published_at?.seconds || (typeof a.published_at === 'string' ? new Date(a.published_at).getTime() : 0);
+        const tB = b.published_at?.seconds || (typeof b.published_at === 'string' ? new Date(b.published_at).getTime() : 0);
+        return tB - tA;
+      });
     },
   });
 
@@ -58,8 +62,8 @@ const Blog = () => {
                     <span className="text-[11px] font-medium uppercase tracking-wider text-primary">{post.category}</span>
                     <span className="text-[11px] text-muted-foreground">•</span>
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> 
-                      {format(new Date(post.published_at), "MMM dd, yyyy")}
+                      <Calendar size={12} />
+                      {safeFormatDate(post.published_at, "MMM dd, yyyy")}
                     </span>
                     {post.author_name && (
                       <>

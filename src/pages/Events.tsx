@@ -34,11 +34,15 @@ const Events = () => {
     queryFn: async () => {
       const q = query(
         collection(db, "events"),
-        where("is_upcoming", "==", tab === "upcoming"),
-        orderBy("created_at", "desc")
+        where("is_upcoming", "==", tab === "upcoming")
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventRow));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as EventRow));
+      return list.sort((a: any, b: any) => {
+        const tA = a.created_at?.seconds || (typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0);
+        const tB = b.created_at?.seconds || (typeof b.created_at === 'string' ? new Date(b.created_at).getTime() : 0);
+        return tB - tA;
+      });
     },
   });
 

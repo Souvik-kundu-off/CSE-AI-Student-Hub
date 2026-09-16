@@ -11,9 +11,10 @@ import {
   Github, ExternalLink, Loader2, ArrowLeft, Users, Tag,
   Calendar, CheckCircle2, Clock, AlertCircle, FileEdit,
   MessageSquare, RefreshCw, Eye, Heart, ChevronLeft, ChevronRight,
-  Video, Image as ImageIcon,
+  Video, Image as ImageIcon, Maximize2, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -63,6 +64,7 @@ const ProjectDetail = () => {
   const [imgIdx, setImgIdx] = useState(0);
   const [resubmitting, setResubmitting] = useState(false);
   const [activeMediaTab, setActiveMediaTab] = useState<"video" | "images">("video");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -144,7 +146,7 @@ const ProjectDetail = () => {
                 <StatusIcon size={11} /> {meta.label}
               </span>
               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <Calendar size={11} /> {format(new Date(project.created_at), "MMMM d, yyyy")}
+                <Calendar size={11} /> {safeFormatDate(project.created_at, "MMMM d, yyyy")}
               </span>
             </div>
 
@@ -289,19 +291,26 @@ const ProjectDetail = () => {
                 /* Screenshots Carousel */
                 images.length > 0 && (
                   <>
-                    <div className="relative aspect-[4/3] sm:aspect-video w-full rounded-xl sm:rounded-2xl overflow-hidden bg-accent border border-white/5">
+                    <div 
+                      onClick={() => setLightboxOpen(true)}
+                      className="relative aspect-[4/3] sm:aspect-video w-full rounded-xl sm:rounded-2xl overflow-hidden bg-accent border border-white/5 cursor-pointer group"
+                    >
                       <AnimatePresence mode="wait">
                         <motion.img
                           key={imgIdx}
                           src={images[imgIdx]}
                           alt={`${project.title} screenshot ${imgIdx + 1}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           initial={{ opacity: 0, scale: 1.02 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.25 }}
                         />
                       </AnimatePresence>
+
+                      <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 pointer-events-none">
+                        <Maximize2 size={12} /> Click to expand
+                      </div>
 
                       {/* Nav arrows */}
                       {images.length > 1 && (
@@ -442,6 +451,35 @@ const ProjectDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxOpen && images[imgIdx] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxOpen(false)}
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              title="Close image"
+            >
+              <X size={20} />
+            </button>
+
+            <img
+              src={images[imgIdx]}
+              alt={`${project.title} screenshot HD`}
+              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 };

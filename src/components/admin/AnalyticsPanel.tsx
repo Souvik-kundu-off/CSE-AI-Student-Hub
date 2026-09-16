@@ -73,11 +73,11 @@ const AdminOverviewPanel = () => {
         const events = eventsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         const totalPoints = profiles.reduce((s: number, p: any) => s + (p.points || 0), 0);
-        const recent = [...profiles].sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 5);
+        const recent = [...profiles].sort((a: any, b: any) => compareDates(a.created_at, b.created_at)).slice(0, 5);
         const top = [...profiles].sort((a: any, b: any) => (b.points || 0) - (a.points || 0)).slice(0, 5);
         const pendingProjects = projects
           .filter((p: any) => p.status === "pending")
-          .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""))
+          .sort((a: any, b: any) => compareDates(a.created_at, b.created_at))
           .slice(0, 5);
 
         setData({
@@ -145,7 +145,7 @@ const FacultyOverviewPanel = () => {
         const activeStudents = profiles.filter((p: any) => p.role === "member").length;
         const pending = projects.filter((p: any) => p.status === "pending").length;
         const top = [...profiles].sort((a: any, b: any) => (b.points || 0) - (a.points || 0)).slice(0, 8);
-        const recent = [...profiles].sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 5);
+        const recent = [...profiles].sort((a: any, b: any) => compareDates(a.created_at, b.created_at)).slice(0, 5);
 
         setData({ members: activeStudents, projects: projects.length, pending, top, recent });
       } catch (err) {
@@ -192,7 +192,7 @@ const EventManagerOverviewPanel = () => {
 
         const upcoming = events.filter((e: any) => e.is_upcoming).length;
         const past = events.filter((e: any) => !e.is_upcoming).length;
-        const recentEvents = [...events].sort((a: any, b: any) => (a.date || "").localeCompare(b.date || "")).slice(0, 6);
+        const recentEvents = [...events].sort((a: any, b: any) => compareDates(a.date, b.date, false)).slice(0, 6);
 
         setData({ upcoming, past, total: events.length, recentEvents });
       } catch (err) {
@@ -258,7 +258,7 @@ const ContentEditorOverviewPanel = () => {
         const published = posts.filter((p: any) => p.is_published).length;
         const drafts = posts.filter((p: any) => !p.is_published).length;
         const broadcasts = announcements.filter((a: any) => a.is_active).length;
-        const recentPosts = [...posts].sort((a: any, b: any) => (b.published_at || "").localeCompare(a.published_at || "")).slice(0, 6);
+        const recentPosts = [...posts].sort((a: any, b: any) => compareDates(a.published_at, b.published_at)).slice(0, 6);
 
         setData({ published, drafts, resources: resources.length, broadcasts, recentPosts });
       } catch (err) {
@@ -320,7 +320,7 @@ const ModeratorOverviewPanel = () => {
         const changes = projects.filter((p: any) => p.status === "changes_requested").length;
         const recentPending = projects
           .filter((p: any) => p.status === "pending")
-          .sort((a: any, b: any) => (a.created_at || "").localeCompare(b.created_at || ""))
+          .sort((a: any, b: any) => compareDates(a.created_at, b.created_at, false))
           .slice(0, 8);
 
         setData({ pending, approved, rejected, changes, recentPending });

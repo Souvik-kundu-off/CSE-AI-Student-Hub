@@ -11,6 +11,7 @@ import {
   AlertCircle, CheckCircle2, Clock, FileEdit, MessageSquare, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 
 interface Project {
@@ -55,11 +56,16 @@ const MyProjects = () => {
     try {
       const q = query(
         collection(db, "projects"),
-        where("author_id", "==", user!.uid),
-        orderBy("created_at", "desc")
+        where("author_id", "==", user!.uid)
       );
       const snap = await getDocs(q);
-      setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project));
+      list.sort((a: any, b: any) => {
+        const tA = a.created_at?.seconds || (typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0);
+        const tB = b.created_at?.seconds || (typeof b.created_at === 'string' ? new Date(b.created_at).getTime() : 0);
+        return tB - tA;
+      });
+      setProjects(list);
     } catch {
       toast.error("Failed to load projects");
     }
@@ -176,7 +182,7 @@ const MyProjects = () => {
                         {p.category && (
                           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{p.category}</span>
                         )}
-                        <span className="text-[11px] text-muted-foreground">· {format(new Date(p.created_at), "MMM d, yyyy")}</span>
+                        <span className="text-[11px] text-muted-foreground">· {safeFormatDate(p.created_at, "MMM d, yyyy")}</span>
                       </div>
                       <Link to={`/projects/${p.id}`}>
                         <h3 className="font-semibold text-base mb-1 hover:text-primary transition-colors">{p.title || "Untitled draft"}</h3>

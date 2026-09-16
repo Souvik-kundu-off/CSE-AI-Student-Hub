@@ -8,8 +8,8 @@ import { storage } from "./firebase";
  */
 export const compressImageToWebP = (
   file: File,
-  maxDimension: number = 1200,
-  quality: number = 0.82
+  maxDimension: number = 1920,
+  quality: number = 0.88
 ): Promise<File> => {
   return new Promise((resolve) => {
     // If not an image (e.g. PDF or non-raster file), return original file

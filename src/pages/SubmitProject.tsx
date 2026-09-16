@@ -132,6 +132,10 @@ const SubmitProject = () => {
         toast.error("Add at least one tech stack tag");
         return;
       }
+      if (images.length === 0) {
+        toast.error("Please upload at least one project screenshot or image");
+        return;
+      }
     }
     setSaving(status === "draft" ? "draft" : "submit");
 
