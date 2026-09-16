@@ -1,6 +1,8 @@
 // Domain Authentication Policy
 // ============================
 
+// NOTE: Domain restriction is currently disabled to allow all email domains.
+// To re-enable, uncomment the domain check in isEmailAllowedForRegistration below.
 export const ALLOWED_UNIVERSITY_DOMAIN = "brainwareuniversity.ac.in";
 
 /*
@@ -13,10 +15,12 @@ const envTestEmails = (import.meta.env.VITE_ALLOWED_TEST_EMAILS || "")
 
 /**
  * Checks if a given email is permitted for NEW user registration.
- * - Allowed if it ends with @brainwareuniversity.ac.in
+ * Currently allows ALL email domains.
+ * To restrict to university emails only, uncomment the domain check below.
  */
 export const isEmailAllowedForRegistration = (email?: string | null): boolean => {
   if (!email) return false;
-  const normalized = email.toLowerCase().trim();
-  return normalized.endsWith(`@${ALLOWED_UNIVERSITY_DOMAIN}`);
+  // const normalized = email.toLowerCase().trim();
+  // return normalized.endsWith(`@${ALLOWED_UNIVERSITY_DOMAIN}`);
+  return true; // Allow all email domains
 };
