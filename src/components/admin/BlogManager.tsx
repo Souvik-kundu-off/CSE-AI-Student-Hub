@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 import { logAdminAction } from "./AuditLog";
 
@@ -264,7 +265,7 @@ const BlogManager = ({ readonly = false }: { readonly?: boolean }) => {
                   <p className="text-xs text-muted-foreground line-clamp-1">{post.excerpt}</p>
                   {post.published_at && (
                     <span className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                      <Calendar size={10} /> {format(new Date(post.published_at), "MMM d, yyyy")}
+                      <Calendar size={10} /> {safeFormatDate(post.published_at, "MMM d, yyyy")}
                     </span>
                   )}
                 </div>

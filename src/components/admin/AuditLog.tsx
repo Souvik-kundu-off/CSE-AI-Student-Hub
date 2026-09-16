@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -133,8 +134,8 @@ const AuditLog = () => {
   const exportCSV = () => {
     const headers = ["Date", "Time", "Admin", "Action", "Target Type", "Target", "Details"];
     const rows = entries.map(e => [
-      format(new Date(e.created_at), "yyyy-MM-dd"),
-      format(new Date(e.created_at), "HH:mm:ss"),
+      safeFormatDate(e.created_at, "yyyy-MM-dd"),
+      safeFormatDate(e.created_at, "HH:mm:ss"),
       e.admin_name,
       e.action_type,
       e.target_type,
@@ -254,9 +255,9 @@ const AuditLog = () => {
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar size={10} />
-                        {format(new Date(entry.created_at), "MMM d, yyyy")}
+                        {safeFormatDate(entry.created_at, "MMM d, yyyy")}
                       </span>
-                      <span>{format(new Date(entry.created_at), "h:mm a")}</span>
+                      <span>{safeFormatDate(entry.created_at, "h:mm a")}</span>
                       <span className="px-1.5 py-0.5 rounded bg-white/5 font-medium">
                         {entry.target_type}
                       </span>

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 
 interface Announcement {
@@ -269,9 +270,9 @@ const BroadcastManager = ({ readonly = false }: { readonly?: boolean }) => {
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{a.content}</p>
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium flex-wrap">
-                        <span className="flex items-center gap-1"><Clock size={12} /> {format(new Date(a.created_at), 'MMM d, h:mm a')}</span>
-                        {a.publish_at && <span className="text-blue-500">Publishes: {format(new Date(a.publish_at), 'MMM d, h:mm a')}</span>}
-                        {a.expires_at && <span className="text-amber-500">Expires: {format(new Date(a.expires_at), 'MMM d, h:mm a')}</span>}
+                        <span className="flex items-center gap-1"><Clock size={12} /> {safeFormatDate(a.created_at, 'MMM d, h:mm a')}</span>
+                        {a.publish_at && <span className="text-blue-500">Publishes: {safeFormatDate(a.publish_at, 'MMM d, h:mm a')}</span>}
+                        {a.expires_at && <span className="text-amber-500">Expires: {safeFormatDate(a.expires_at, 'MMM d, h:mm a')}</span>}
                       </div>
                     </div>
                   </div>

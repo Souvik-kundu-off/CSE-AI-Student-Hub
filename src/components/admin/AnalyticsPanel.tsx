@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { compareDates, safeFormatDate } from "@/lib/utils";
 import {
   BarChart3, Users, Layout, Trophy, Loader2, Clock, CheckCircle2,
   Calendar, Megaphone, FileText, BookOpen, BookMarked, GraduationCap,
@@ -117,11 +118,11 @@ const AdminOverviewPanel = () => {
       </div>
       <div className="grid md:grid-cols-3 gap-4">
         <ListBlock title="Pending Reviews" icon={Clock} empty="All clear!"
-          items={data.pendingProjects.map((p: any) => ({ primary: p.title, secondary: `by ${p.author_name}`, meta: p.created_at ? format(new Date(p.created_at), "MMM d") : "" }))} />
+          items={data.pendingProjects.map((p: any) => ({ primary: p.title, secondary: `by ${p.author_name}`, meta: safeFormatDate(p.created_at, "MMM d") }))} />
         <ListBlock title="Top Members" icon={Trophy} empty="No members yet."
           items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: "Hub member", meta: `${m.points || 0} pts` }))} />
         <ListBlock title="Recent Signups" icon={Users} empty="No new members."
-          items={data.recent.map((m: any) => ({ primary: m.full_name || "New member", secondary: m.email || "", meta: m.created_at ? format(new Date(m.created_at), "MMM d") : "" }))} />
+          items={data.recent.map((m: any) => ({ primary: m.full_name || "New member", secondary: m.email || "", meta: safeFormatDate(m.created_at, "MMM d") }))} />
       </div>
     </div>
   );
@@ -173,7 +174,7 @@ const FacultyOverviewPanel = () => {
         <ListBlock title="🏆 Top Performers" icon={Trophy} empty="No members yet."
           items={data.top.map((m: any) => ({ primary: m.full_name || "—", secondary: m.programme_name || "Member", meta: `${m.points || 0} pts` }))} />
         <ListBlock title="Recent Joiners" icon={Users} empty="No recent signups."
-          items={data.recent.map((m: any) => ({ primary: m.full_name || "New student", secondary: m.programme_name || m.email, meta: m.created_at ? format(new Date(m.created_at), "MMM d") : "" }))} />
+          items={data.recent.map((m: any) => ({ primary: m.full_name || "New student", secondary: m.programme_name || m.email, meta: safeFormatDate(m.created_at, "MMM d") }))} />
       </div>
     </div>
   );
@@ -228,7 +229,7 @@ const EventManagerOverviewPanel = () => {
                 <p className="text-xs text-muted-foreground">{ev.location || "TBD"} · {ev.spots ? `${ev.spots} spots` : "Open"}</p>
               </div>
               <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">
-                {ev.date ? format(new Date(ev.date), "MMM d") : "TBA"}
+                {safeFormatDate(ev.date, "MMM d") || "TBA"}
               </span>
             </div>
           ))}
@@ -361,7 +362,7 @@ const ModeratorOverviewPanel = () => {
                   <p className="font-semibold text-sm">{p.title}</p>
                   <p className="text-xs text-muted-foreground">by {p.author_name} · {(p.stack || []).slice(0, 3).join(", ")}</p>
                 </div>
-                <span className="text-[10px] font-bold text-amber-500">{p.created_at ? format(new Date(p.created_at), "MMM d") : ""}</span>
+                <span className="text-[10px] font-bold text-amber-500">{safeFormatDate(p.created_at, "MMM d")}</span>
               </div>
             ))}
           </div>

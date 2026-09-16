@@ -7,6 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { safeFormatDate } from "@/lib/utils";
 import { format } from "date-fns";
 
 interface FormField { id: string; label: string; type: string; required: boolean; options?: string[]; }
@@ -90,7 +91,7 @@ const EventRegistrations = ({ readOnly = false }: { readOnly?: boolean }) => {
     const rows = regs.map((r) => [
       r.profiles?.full_name ?? "",
       r.profiles?.email ?? "",
-      format(new Date(r.created_at), "yyyy-MM-dd HH:mm"),
+      safeFormatDate(r.created_at, "yyyy-MM-dd HH:mm"),
       ...fields.map((f) => {
         const v = r.answers?.[f.id];
         return Array.isArray(v) ? v.join("; ") : (v ?? "");
@@ -176,7 +177,7 @@ const EventRegistrations = ({ readOnly = false }: { readOnly?: boolean }) => {
                           <div className="text-xs text-muted-foreground">{r.profiles?.email}</div>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {format(new Date(r.created_at), "MMM d, yyyy · h:mm a")}
+                          {safeFormatDate(r.created_at, "MMM d, yyyy · h:mm a")}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {fields.length > 0 ? (
