@@ -1,0 +1,19 @@
+[
+  {
+    "origin": [
+      "https://cse-ai.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:4173"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Content-Length",
+      "User-Agent",
+      "x-goog-resumable"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
