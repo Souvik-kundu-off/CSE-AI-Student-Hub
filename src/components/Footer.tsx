@@ -9,12 +9,12 @@ const Footer = () => (
           <div className="flex flex-col gap-3 mb-4">
             <div className="flex items-center gap-3 flex-wrap">
               <img
-                src="/Uni logo/CSE_AI_WHITE_LOGO_FULL.png"
+                src="/uni-logo/CSE_AI_WHITE_LOGO_FULL.png"
                 alt="CSE-AI Student Hub"
                 className="h-16 sm:h-20 w-auto object-contain"
               />
               <img
-                src="/Uni logo/bwulogo.png"
+                src="/uni-logo/bwulogo.png"
                 alt="Brainware University"
                 className="h-10 sm:h-12 w-auto opacity-90 object-contain"
               />
@@ -71,14 +71,14 @@ const Footer = () => (
       <div className="border-t border-border mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img
-            src="/All logo GSA/Google Logo.png"
+            src="/all-logo-gsa/Google Logo.png"
             alt="Google"
             className="h-6 w-auto opacity-60"
           />
           <span className="text-xs text-muted-foreground">Google Student Community · Brainware University</span>
         </div>
         <img
-          src="/All logo GSA/Gemini Sparkle.png"
+          src="/all-logo-gsa/Gemini Sparkle.png"
           alt="#TeamGemini"
           className="h-5 w-auto opacity-50"
         />

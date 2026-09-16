@@ -38,7 +38,7 @@ const MemberNavbar = () => {
         <div className="flex items-center justify-between h-16">
           <Link to="/dashboard" className="flex items-center group py-1">
             <img
-              src="/Uni logo/CSE_AI_WHITE_LOGO_FULL.png"
+              src="/uni-logo/CSE_AI_WHITE_LOGO_FULL.png"
               alt="CSE-AI Student Hub"
               className="h-12 sm:h-14 md:h-16 lg:h-18 max-h-16 w-auto object-contain transition-transform group-hover:scale-105"
             />

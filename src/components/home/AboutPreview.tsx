@@ -27,10 +27,10 @@ const pillars = [
 const AboutPreview = () => (
   <section className="section-padding border-t border-border relative overflow-hidden">
     {/* Floating GSA logos */}
-    <img src="/All logo GSA/10 (14).png" alt="" aria-hidden="true"
+    <img src="/all-logo-gsa/10 (14).png" alt="" aria-hidden="true"
       className="hidden sm:block absolute top-12 left-[3%] w-14 md:w-24 opacity-35 pointer-events-none select-none"
       style={{ animation: "aboutFloat 8s ease-in-out 0.5s infinite" }} />
-    <img src="/All logo GSA/Google Gemini Logo on White.png" alt="" aria-hidden="true"
+    <img src="/all-logo-gsa/Google Gemini Logo on White.png" alt="" aria-hidden="true"
       className="hidden sm:block absolute bottom-8 right-[4%] w-16 md:w-28 opacity-30 pointer-events-none select-none"
       style={{ animation: "aboutFloat 10s ease-in-out 2s infinite" }} />
     <style>{`@keyframes aboutFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-18px) rotate(2deg)} }`}</style>

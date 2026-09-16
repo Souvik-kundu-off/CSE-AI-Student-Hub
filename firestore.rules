@@ -95,20 +95,35 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
-    // Contact Messages
+    // Contact Messages — validate required fields to prevent spam/bot abuse
     match /contact_messages/{msgId} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'message'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() <= 200
+                    && request.resource.data.email is string
+                    && request.resource.data.email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() > 0
+                    && request.resource.data.message.size() <= 5000;
       allow read, update, delete: if isStaff();
     }
 
-    // Admin Audit Log
+    // Admin Audit Log — only superadmin/admin can write; staff can read
     match /admin_audit_log/{logId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow write: if isAdmin();
     }
 
-    // Reports Collection
+    // Reports Collection — only superadmin/admin can write; staff can read
     match /reports/{reportId} {
-      allow read, write: if isStaff();
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Catch-all: deny access to any undefined collections
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

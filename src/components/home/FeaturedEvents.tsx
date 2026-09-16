@@ -30,10 +30,10 @@ const FeaturedEvents = () => {
   return (
     <section className="section-padding relative overflow-hidden">
       {/* Floating GSA logos */}
-      <img src="/All logo GSA/Gemini Sparkle.png" alt="" aria-hidden="true"
+      <img src="/all-logo-gsa/Gemini Sparkle.png" alt="" aria-hidden="true"
         className="hidden sm:block absolute top-8 right-[5%] w-14 md:w-28 opacity-30 pointer-events-none select-none"
         style={{ animation: "sectionFloat 7s ease-in-out infinite" }} />
-      <img src="/All logo GSA/07 (1).png" alt="" aria-hidden="true"
+      <img src="/all-logo-gsa/07 (1).png" alt="" aria-hidden="true"
         className="hidden sm:block absolute bottom-10 left-[4%] w-12 md:w-24 opacity-30 pointer-events-none select-none"
         style={{ animation: "sectionFloat 9s ease-in-out 1.5s infinite" }} />
       <style>{`@keyframes sectionFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }`}</style>

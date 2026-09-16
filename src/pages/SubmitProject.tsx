@@ -252,7 +252,7 @@ const SubmitProject = () => {
               <Input
                 value={form.github_url}
                 onChange={(e) => setForm({ ...form, github_url: e.target.value })}
-                placeholder="https://github.com/you/repo"
+                placeholder="https://github.com/username/project-name"
                 className="pl-9"
               />
             </div>

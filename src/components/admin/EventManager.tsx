@@ -276,7 +276,7 @@ const EventManager = ({ readOnly = false }: { readOnly?: boolean }) => {
             </div>
             {form.event_type === "outside" && (
               <Field label="External Registration Link *">
-                <Input value={form.external_url} onChange={(e) => setForm({ ...form, external_url: e.target.value })} placeholder="https://lu.ma/..." />
+                <Input value={form.external_url} onChange={(e) => setForm({ ...form, external_url: e.target.value })} placeholder="https://example.com/event-registration" />
               </Field>
             )}
           </div>

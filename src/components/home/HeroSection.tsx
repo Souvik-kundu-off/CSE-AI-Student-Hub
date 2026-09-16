@@ -49,28 +49,28 @@ const HeroSection = () => {
 
       {/* Floating GSA logos */}
       <img
-        src="/All logo GSA/element.webp"
+        src="/all-logo-gsa/element.webp"
         alt=""
         aria-hidden="true"
         className="hidden sm:block absolute top-24 left-[8%] w-10 sm:w-14 md:w-20 lg:w-24 opacity-100 pointer-events-none select-none"
         style={{ animation: "heroFloat 6s ease-in-out infinite" }}
       />
       <img
-        src="/All logo GSA/05 (9).png"
+        src="/all-logo-gsa/05 (9).png"
         alt=""
         aria-hidden="true"
         className="hidden sm:block absolute top-32 right-[12%] w-10 sm:w-14 md:w-20 lg:w-28 opacity-100 pointer-events-none select-none"
         style={{ animation: "heroFloat 8s ease-in-out 1s infinite" }}
       />
       <img
-        src="/All logo GSA/04 (8).png"
+        src="/all-logo-gsa/04 (8).png"
         alt=""
         aria-hidden="true"
         className="hidden md:block absolute bottom-28 left-[12%] w-14 md:w-20 lg:w-28 opacity-100 pointer-events-none select-none rotate-45"
         style={{ animation: "heroFloat 7s ease-in-out 2s infinite" }}
       />
       <img
-        src="/All logo GSA/01 (5).png"
+        src="/all-logo-gsa/01 (5).png"
         alt=""
         aria-hidden="true"
         className="hidden md:block absolute bottom-36 right-[10%] w-10 md:w-14 lg:w-16 opacity-100 pointer-events-none select-none"

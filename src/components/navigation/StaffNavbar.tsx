@@ -78,7 +78,7 @@ const StaffNavbar = () => {
           {/* Logo */}
           <Link to="/admin" className="flex items-center gap-2.5 group shrink-0 py-1">
             <img
-              src="/Uni logo/CSE_AI_WHITE_LOGO_FULL.png"
+              src="/uni-logo/CSE_AI_WHITE_LOGO_FULL.png"
               alt="CSE-AI Student Hub"
               className="h-12 sm:h-14 md:h-16 lg:h-18 max-h-16 w-auto object-contain transition-transform group-hover:scale-105"
             />

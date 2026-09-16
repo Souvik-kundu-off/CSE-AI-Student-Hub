@@ -15,6 +15,23 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
     ],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-firebase': [
+              'firebase/app',
+              'firebase/auth',
+              'firebase/firestore',
+              'firebase/storage',
+            ],
+            'vendor-ui': ['lucide-react'],
+            'vendor-tanstack': ['@tanstack/react-query'],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

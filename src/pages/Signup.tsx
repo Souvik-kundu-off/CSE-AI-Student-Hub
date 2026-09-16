@@ -49,7 +49,7 @@ const Signup = () => {
           <div className="text-center mb-10">
             <Link to="/" className="inline-block mb-6 group">
               <img
-                src="/Uni logo/CSE_AI_WHITE_LOGO_FULL.png"
+                src="/uni-logo/CSE_AI_WHITE_LOGO_FULL.png"
                 alt="CSE-AI Student Hub"
                 className="h-14 sm:h-16 w-auto mx-auto drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
               />

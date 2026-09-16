@@ -15,7 +15,7 @@ const GSCSection = () => (
         <div className="border border-border rounded-2xl bg-card/80 backdrop-blur-sm p-5 sm:p-8 md:p-10 relative overflow-hidden">
           {/* Floating decorative Gemini sparkle */}
           <img
-            src="/All logo GSA/01 (5).png"
+            src="/all-logo-gsa/01 (5).png"
             alt=""
             aria-hidden="true"
             className="absolute -top-6 -right-6 w-28 opacity-10 pointer-events-none select-none rotate-12"
@@ -25,7 +25,7 @@ const GSCSection = () => (
             {/* Google Logo */}
             <div className="shrink-0">
               <img
-                src="/All logo GSA/Google Logo.png"
+                src="/all-logo-gsa/Google Logo.png"
                 alt="Google"
                 className="h-12 md:h-14 w-auto"
               />
@@ -65,7 +65,7 @@ const GSCSection = () => (
           <div className="mt-6 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img
-                src="/All logo GSA/Gemini Sparkle.png"
+                src="/all-logo-gsa/Gemini Sparkle.png"
                 alt="#TeamGemini"
                 className="h-8 w-auto"
               />

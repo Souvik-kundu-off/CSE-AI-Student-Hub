@@ -38,10 +38,10 @@ const CTASection = () => {
   return (
     <section className="section-padding relative overflow-hidden">
       {/* Floating GSA logos */}
-      <img src="/All logo GSA/element.webp" alt="" aria-hidden="true"
+      <img src="/all-logo-gsa/element.webp" alt="" aria-hidden="true"
         className="hidden sm:block absolute top-6 left-[6%] w-12 md:w-24 opacity-35 pointer-events-none select-none"
         style={{ animation: "ctaFloat 8s ease-in-out 0.5s infinite" }} />
-      <img src="/All logo GSA/Gemini Sparkle.png" alt="" aria-hidden="true"
+      <img src="/all-logo-gsa/Gemini Sparkle.png" alt="" aria-hidden="true"
         className="hidden sm:block absolute bottom-6 right-[5%] w-16 md:w-28 opacity-30 pointer-events-none select-none"
         style={{ animation: "ctaFloat 10s ease-in-out 2s infinite" }} />
       <style>{`@keyframes ctaFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }`}</style>
