@@ -42,6 +42,10 @@ import OnboardingCheck from "./components/auth/OnboardingCheck";
 import NotFound from "./pages/NotFound";
 import GlobalAlertBanner from "./components/GlobalAlertBanner";
 
+import Jobs from "./pages/Jobs";
+import JobDetail from "./pages/JobDetail";
+import AdminJobs from "./pages/admin/AdminJobs";
+
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -58,6 +62,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Index />} />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/jobs/:id" element={<JobDetail />} />
               <Route path="/about" element={<About />} />
               <Route path="/events" element={<Events />} />
               <Route path="/events/:id" element={<EventDetail />} />
@@ -80,6 +86,7 @@ const App = () => (
               <Route path="/submit-project" element={<SubmitProject />} />
               <Route path="/submit-project/:id" element={<SubmitProject />} />
               <Route path="/admin" element={<AdminOverview />} />
+              <Route path="/admin/jobs" element={<AdminJobs />} />
               <Route path="/admin/moderation" element={<AdminModeration />} />
               <Route path="/admin/events" element={<AdminEvents />} />
               <Route path="/admin/broadcasts" element={<AdminBroadcasts />} />

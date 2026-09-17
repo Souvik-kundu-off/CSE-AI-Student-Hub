@@ -21,6 +21,7 @@ const MemberNavbar = () => {
 
   const navLinks = [
     { label: "Dashboard", href: "/dashboard" },
+    { label: "Jobs", href: "/jobs" },
     { label: "Projects", href: "/projects" },
     { label: "Events", href: "/events" },
     { label: "Resources", href: "/resources" },

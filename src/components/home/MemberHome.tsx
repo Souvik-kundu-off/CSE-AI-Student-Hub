@@ -22,7 +22,8 @@ import {
   Code,
   ShieldCheck,
   History,
-  AlertCircle
+  AlertCircle,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -209,6 +210,11 @@ const MemberHome = () => {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <Link to="/jobs">
+                <Button size="sm" className="rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 h-10 px-5 gap-2 text-xs">
+                  <Briefcase size={16} /> Job Portal
+                </Button>
+              </Link>
               {profile?.role === 'admin' && (
                 <Link to="/admin-review">
                   <Button size="sm" variant="outline" className="rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all font-bold h-10 px-5 text-primary">

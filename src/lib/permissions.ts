@@ -42,6 +42,7 @@ export type StaffTab =
   | "resources"
   | "blog"
   | "reports"
+  | "jobs"
   | "settings";
 
 // Per-tab access: 'write' = can edit, 'read' = view only, false = hidden.
@@ -51,30 +52,30 @@ const PERMS: Record<AppRole, Partial<Record<StaffTab, Access>>> = {
   superadmin: {
     overview: "write", moderation: "write", events: "write",
     registrations: "write", broadcasts: "write", directory: "write",
-    resources: "write", blog: "write", reports: "write", settings: "write",
+    resources: "write", blog: "write", reports: "write", jobs: "write", settings: "write",
   },
   admin: {
     overview: "write", moderation: "write", events: "write",
     registrations: "write", broadcasts: "write", directory: "write",
-    resources: "write", blog: "write", reports: "write", settings: "write",
+    resources: "write", blog: "write", reports: "write", jobs: "write", settings: "write",
   },
   faculty: {
-    overview: "write", directory: "write", reports: "write",
+    overview: "write", directory: "write", reports: "write", jobs: "write",
     moderation: "read", events: "read", registrations: "read",
     broadcasts: "read", resources: "read", blog: "read",
   },
   event_manager: {
     overview: "read", events: "write", registrations: "write",
-    broadcasts: "write", directory: "write", moderation: "read",
+    broadcasts: "write", directory: "write", jobs: "write", moderation: "read",
     resources: "read", blog: "read", reports: "read",
   },
   content_editor: {
-    overview: "read", blog: "write", resources: "write",
+    overview: "read", blog: "write", resources: "write", jobs: "write",
     broadcasts: "write", events: "read", registrations: "read",
     moderation: "read", directory: "read", reports: "read",
   },
   moderator: {
-    overview: "read", moderation: "write", directory: "write",
+    overview: "read", moderation: "write", directory: "write", jobs: "read",
     events: "read", registrations: "read", broadcasts: "read",
     resources: "read", blog: "read", reports: "read",
   },

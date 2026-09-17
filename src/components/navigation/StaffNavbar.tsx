@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Menu, X, ShieldCheck, LogOut, User, BarChart3, Layout, Calendar,
   Megaphone, Users, BookOpen, ScrollText, Image, FileText, Crown,
-  FileSpreadsheet, Home, Settings, ChevronDown
+  FileSpreadsheet, Home, Settings, ChevronDown, Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +19,7 @@ import { ROLE_LABELS, AppRole, canRead, StaffTab } from "@/lib/permissions";
 // adminOnly: true means the link is ONLY shown to admin/superadmin regardless of tab access
 const ALL_ADMIN_LINKS: { label: string; href: string; icon: any; tab: StaffTab; adminOnly?: boolean }[] = [
   { label: "Overview", href: "/admin", icon: BarChart3, tab: "overview" },
+  { label: "Jobs", href: "/admin/jobs", icon: Briefcase, tab: "jobs" },
   { label: "Moderation", href: "/admin/moderation", icon: Layout, tab: "moderation" },
   { label: "Events", href: "/admin/events", icon: Calendar, tab: "events" },
   { label: "Broadcasts", href: "/admin/broadcasts", icon: Megaphone, tab: "broadcasts" },
@@ -35,6 +36,7 @@ const ALL_ADMIN_LINKS: { label: string; href: string; icon: any; tab: StaffTab; 
 
 // Top-level public links (always shown)
 const PUBLIC_LINKS = [
+  { label: "Jobs", href: "/jobs" },
   { label: "Projects", href: "/projects" },
   { label: "Events", href: "/events" },
   { label: "Resources", href: "/resources" },

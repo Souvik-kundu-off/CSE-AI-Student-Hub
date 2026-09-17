@@ -88,6 +88,12 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // Job Postings Collection (Careers & Campus Placements)
+    match /job_postings/{jobId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // Leaderboard & Points History
     match /points_history/{logId} {
       allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());

@@ -17,6 +17,7 @@ const GuestNavbar = () => {
 
   const navLinks = [
     { label: "Home", href: "/" },
+    { label: "Jobs", href: "/jobs" },
     { label: "About", href: "/about" },
     { label: "Projects", href: "/projects" },
     { label: "Events", href: "/events" },
