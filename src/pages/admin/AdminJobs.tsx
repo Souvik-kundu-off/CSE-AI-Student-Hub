@@ -58,6 +58,7 @@ import {
   CalendarDays,
   ShieldCheck,
   Info,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -118,6 +119,7 @@ const AdminJobs = () => {
 
   // Unified form data (used for both preview-edit and manual form)
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  const [parseMeta, setParseMeta] = useState<AIJobParseResult["_meta"]>(undefined);
 
   useEffect(() => { fetchJobs(); }, []);
 
@@ -158,11 +160,12 @@ const AdminJobs = () => {
         return;
       }
 
-      // 2️⃣ Call Groq AI
-      toast.info("AI is analysing the placement details...");
+      // 2️⃣ Call Groq AI / Smart Parser
+      toast.info("Analysing placement details...");
       const result: AIJobParseResult = await parseJobPostingWithAI(combinedText);
 
       // 3️⃣ Populate form and show preview (only structured text data is kept — no file reference)
+      setParseMeta(result._meta);
       setFormData({
         title: result.title,
         company: result.company,
@@ -182,9 +185,18 @@ const AdminJobs = () => {
       });
 
       setModal("preview");
-      toast.success("Extraction complete! Please review before posting.");
+      if (result._meta?.source === "ai") {
+        toast.success(`Extracted using AI (${result._meta.model})! Please verify details.`);
+      } else {
+        toast.info(
+          result._meta?.warning
+            ? `Extracted using smart parser: ${result._meta.warning}`
+            : "Extracted using smart parser. Please verify details before posting.",
+          { duration: 6000 }
+        );
+      }
     } catch (err: any) {
-      toast.error(err.message || "AI extraction failed. Please try again.");
+      toast.error(err.message || "Extraction failed. Please try again.");
     } finally {
       setIsExtracting(false);
     }
@@ -511,13 +523,33 @@ const AdminJobs = () => {
           <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-xl border-b border-border/60 p-5 flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <ShieldCheck size={14} className="text-emerald-400" />
+                <div
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                    parseMeta?.source === "ai"
+                      ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                      : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                  }`}
+                >
+                  <ShieldCheck size={14} />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">AI Extracted — Verify Before Posting</span>
+                <span
+                  className={`text-[10px] font-black uppercase tracking-widest ${
+                    parseMeta?.source === "ai" ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                >
+                  {parseMeta?.source === "ai"
+                    ? `AI Extracted (${parseMeta.model}) — Verify Before Posting`
+                    : "Extracted via Smart Parser — Verify Before Posting"}
+                </span>
               </div>
               <h2 className="text-lg font-bold leading-tight">Review & Confirm Job Posting</h2>
               <p className="text-xs text-muted-foreground mt-0.5">All fields are editable. Correct anything the AI may have gotten wrong.</p>
+              {parseMeta?.warning && (
+                <div className="mt-2 text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <AlertCircle size={12} className="shrink-0 text-amber-400" />
+                  <span>{parseMeta.warning}</span>
+                </div>
+              )}
             </div>
             <button onClick={() => setModal("none")} className="p-2 rounded-xl hover:bg-white/10 text-muted-foreground transition-colors shrink-0">
               <X size={18} />

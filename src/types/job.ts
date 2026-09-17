@@ -39,4 +39,9 @@ export interface AIJobParseResult {
   selection_process: string[];
   apply_url: string;
   deadline: string;
+  _meta?: {
+    source: "ai" | "heuristic";
+    model?: string;
+    warning?: string;
+  };
 }
