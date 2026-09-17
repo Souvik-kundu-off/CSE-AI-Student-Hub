@@ -193,57 +193,73 @@ ${text}`;
     "qwen/qwen3.8-27b",     // High reliability plain JSON
   ];
 
+  // Try same-origin proxy first (/api/groq), then direct URL as fallback
+  const endpoints = [
+    "/api/groq/openai/v1/chat/completions",
+    "https://api.groq.com/openai/v1/chat/completions",
+  ];
+
   const errorDetails: string[] = [];
 
   for (const model of models) {
-    try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.05,
-          response_format: { type: "json_object" },
-          max_tokens: 3000,
-        }),
-      });
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.05,
+            response_format: { type: "json_object" },
+            max_tokens: 3000,
+          }),
+        });
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        let errMsg = `HTTP ${res.status}`;
-        try {
-          const errObj = JSON.parse(errText);
-          if (errObj.error?.message) errMsg += ` (${errObj.error.message})`;
-        } catch {}
-        console.warn(`Groq model ${model} failed: ${errMsg}`);
-        errorDetails.push(`${model}: ${errMsg}`);
-        continue;
+        if (!res.ok) {
+          // If proxy returned 404 (not mounted), try the direct endpoint
+          if (res.status === 404 && endpoint.startsWith("/api/groq")) {
+            continue;
+          }
+          const errText = await res.text().catch(() => "");
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const errObj = JSON.parse(errText);
+            if (errObj.error?.message) errMsg += ` (${errObj.error.message})`;
+          } catch {}
+          console.warn(`Groq model ${model} failed on ${endpoint}: ${errMsg}`);
+          errorDetails.push(`${model}: ${errMsg}`);
+          break; // Don't retry same model on other endpoint if it's an API-level error (400/401/429)
+        }
+
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+          errorDetails.push(`${model}: empty choices content`);
+          break;
+        }
+
+        const cleanJson = content.replace(/```json/g, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(cleanJson);
+
+        return {
+          result: sanitizeParseResult(parsed, model),
+          errorDetails: [],
+        };
+      } catch (err: any) {
+        console.warn(`Groq model ${model} error on ${endpoint}:`, err);
+        if (endpoint === endpoints[0]) {
+          // Try direct endpoint if proxy threw network error
+          continue;
+        }
+        errorDetails.push(`${model}: ${err?.message || "Network Error"}`);
       }
-
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        errorDetails.push(`${model}: empty choices content`);
-        continue;
-      }
-
-      const cleanJson = content.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(cleanJson);
-
-      return {
-        result: sanitizeParseResult(parsed, model),
-        errorDetails: [],
-      };
-    } catch (err: any) {
-      console.warn(`Groq model ${model} fetch error:`, err);
-      errorDetails.push(`${model}: ${err?.message || "Network Error"}`);
     }
   }
 

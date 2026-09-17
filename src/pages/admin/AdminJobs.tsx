@@ -596,8 +596,8 @@ const AdminJobs = () => {
                     : "Extracted via Smart Parser — Verify Before Posting"}
                 </span>
               </div>
-              <h2 className="text-lg font-bold leading-tight">Review & Confirm Job Posting</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">All fields are editable. Correct anything the AI may have gotten wrong.</p>
+              <DialogTitle className="text-lg font-bold leading-tight">Review & Confirm Job Posting</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">All fields are editable. Correct anything the AI may have gotten wrong.</DialogDescription>
               {parseMeta?.warning && (
                 <div className="mt-2 text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
                   <AlertCircle size={12} className="shrink-0 text-amber-400" />
