@@ -1,89 +1,171 @@
 import { AIJobParseResult, JobType } from "@/types/job";
 
 /**
- * Extracts structured job posting details from raw placement email text or document content.
- * Uses Groq API with models confirmed available on the user account (e.g. gpt-oss-120b, gpt-oss-20b).
- * Falls back to an intelligent, robust heuristic parser if the API is unavailable or unconfigured.
+ * Strips all Markdown / MDX formatting symbols and converts to clean plain text.
+ * Replaces **bold**, *italic*, ### headers, backticks, and standardizes bullets to '•'.
  */
-export async function parseJobPostingWithAI(rawContent: string): Promise<AIJobParseResult> {
-  const apiKey =
+export function stripMarkdown(text: string): string {
+  if (!text) return "";
+  return text
+    // Remove bold and italic markers
+    .replace(/\*\*\*(.*?)\*\*\*/g, "$1")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/___(.*?)___/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    // Remove markdown heading hashes (# Title, ## Title)
+    .replace(/^#{1,6}\s+/gm, "")
+    // Standardize markdown dashes/stars into clean bullet characters (• )
+    .replace(/^[\*\-]\s+/gm, "• ")
+    // Remove inline code ticks
+    .replace(/`([^`]+)`/g, "$1")
+    // Remove blockquotes
+    .replace(/^>\s+/gm, "")
+    // Normalize excessive multiple blank lines into max 2
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Retrieves the Groq API key from environment variables (build-time) or localStorage (runtime fallback).
+ */
+export function getGroqApiKey(): string {
+  const envKey =
     (import.meta.env.VITE_GROQ_API_KEY as string) ||
     (import.meta.env.VITE_GEOQ_API_KEY as string) ||
     "";
+  if (envKey && envKey.trim().length > 0) return envKey.trim();
+
+  if (typeof window !== "undefined") {
+    const localKey =
+      localStorage.getItem("VITE_GROQ_API_KEY") ||
+      localStorage.getItem("groq_api_key") ||
+      "";
+    if (localKey && localKey.trim().length > 0) return localKey.trim();
+  }
+
+  return "";
+}
+
+/**
+ * Saves or clears a custom Groq API key in the browser localStorage.
+ */
+export function setLocalGroqApiKey(key: string): void {
+  if (typeof window !== "undefined") {
+    if (key && key.trim()) {
+      localStorage.setItem("VITE_GROQ_API_KEY", key.trim());
+    } else {
+      localStorage.removeItem("VITE_GROQ_API_KEY");
+      localStorage.removeItem("groq_api_key");
+    }
+  }
+}
+
+/**
+ * Extracts structured job posting details from raw placement email text or document content.
+ * Uses Groq API with models confirmed on the account (gpt-oss-120b, gpt-oss-20b, groq/compound, qwen/qwen3.8-27b).
+ * Falls back to an intelligent heuristic parser if the API is unavailable or unconfigured.
+ */
+export async function parseJobPostingWithAI(rawContent: string): Promise<AIJobParseResult> {
+  const apiKey = getGroqApiKey();
 
   if (apiKey && apiKey.trim().length > 0) {
     try {
-      const result = await callGroqAPI(rawContent, apiKey);
+      const { result, errorDetails } = await callGroqAPI(rawContent, apiKey);
       if (result) return result;
-    } catch (err: any) {
-      console.warn("Groq API extraction failed, using heuristic fallback parser:", err);
+
+      // All models failed — use smart heuristic and log specific reasons
+      console.warn("Groq AI models failed:", errorDetails);
       const fallback = fallbackHeuristicParser(rawContent);
       fallback._meta = {
         source: "heuristic",
-        warning: `AI API encountered an issue (${err?.message || "network/model error"}). Offline parser used.`,
+        warning: `AI API was unavailable (${errorDetails.join("; ")}). Smart offline parser used instead.`,
+      };
+      return fallback;
+    } catch (err: any) {
+      console.warn("Groq API extraction threw:", err);
+      const fallback = fallbackHeuristicParser(rawContent);
+      fallback._meta = {
+        source: "heuristic",
+        warning: `AI extraction error (${err?.message || "network error"}). Smart offline parser used instead.`,
       };
       return fallback;
     }
-  } else {
-    console.warn("No VITE_GROQ_API_KEY found in import.meta.env. Using smart heuristic fallback.");
   }
 
+  // No API key found
+  console.warn("No Groq API key found in build or localStorage. Using smart heuristic parser.");
   const fallback = fallbackHeuristicParser(rawContent);
-  if (!apiKey || apiKey.trim().length === 0) {
-    fallback._meta = {
-      source: "heuristic",
-      warning: "Groq API key not loaded in browser session. (Tip: refresh page or restart dev server).",
-    };
-  }
+  fallback._meta = {
+    source: "heuristic",
+    warning: "Groq API key not found in this deployment build. (On Vercel, trigger a Redeploy after adding env vars, or enter key in settings).",
+  };
   return fallback;
 }
 
-async function callGroqAPI(text: string, apiKey: string): Promise<AIJobParseResult | null> {
+async function callGroqAPI(
+  text: string,
+  apiKey: string
+): Promise<{ result: AIJobParseResult | null; errorDetails: string[] }> {
   const systemPrompt = `You are a specialized placement data extractor for a university engineering and AI department.
-Your task is to parse forwarded placement emails, campus recruitment drives, and JDs into clean, accurate, structured JSON.
+Extract structured job posting details from raw placement emails into clean JSON.
 
-CRITICAL EXTRACTION RULES:
-1. COMPANY NAME:
+CRITICAL FORMATTING & EXTRACTION RULES:
+1. PLAIN NORMAL TEXT ONLY (NO MARKDOWN / NO MD / NO MDX):
+   - Output ONLY clean, normal plain text.
+   - Do NOT use markdown symbols like asterisks (** or *), hashes (###), underscores (__), or backticks (\`).
+   - For section titles inside description, write normal plain headings followed by a colon:
+     Role Overview:
+     Key Responsibilities:
+     • Bullet point 1
+     • Bullet point 2
+     Compensation & Progression:
+   - Use standard bullet character "•" instead of markdown "-" or "*".
+   - NO markdown bolding in titles, skills, or selection rounds.
+
+2. COMPANY NAME:
    - Placement emails always begin with "Dear Students" or forwarding headers — NEVER use "Dear Students", "Brainware University", or "Placement Coordinator" as company name.
    - Look for the company name in phrases like "regarding <Company>", "JD received from <Company>", "About <Company>", or in the subject.
 
-2. JOB TYPE & COMPENSATION:
-   - In campus recruitment, many roles begin with an evaluation internship or probation (with a monthly stipend) leading directly to a full-time Pre-Placement Offer (PPO) with an annual LPA salary.
-   - If an initial internship or probation period leads to a PPO or full-time conversion:
-     - Set job_type to "Full-time" (or "Internship" if primarily an internship).
+3. JOB TYPE & COMPENSATION:
+   - If an initial internship or probation period leads to a Pre-Placement Offer (PPO) or full-time conversion:
+     - Set job_type to "Full-time" (or "Internship" if primarily an intern role).
      - In ctc_package, ALWAYS include BOTH the monthly stipend and the full-time PPO CTC!
        Example: "Stipend: ₹25,000/month | PPO: ₹5–7 LPA"
-   - Do NOT omit either the stipend or the PPO CTC if both are stated.
+   - Do NOT omit either the stipend or the PPO CTC if both are mentioned.
 
-3. JOB DESCRIPTION & RESPONSIBILITIES:
-   - Provide a comprehensive, professional description in clear markdown.
+4. JOB DESCRIPTION:
+   - Provide a comprehensive, professional plain-text description.
    - Include:
-     a) Role Overview & Ecosystem (e.g. what product/platform the candidate will work on).
-     b) Key Responsibilities: Formatted as clean bullet points (- Assist in..., - Support QA..., etc.).
-     c) Work Mode & Location details (e.g. Remote / Work From Home / In-office options).
-     d) PPO & Progression structure (e.g. 2-week remote evaluation -> 1-month probation -> PPO).
-   - If multiple tracks are mentioned (e.g. IT, HR, Marketing), focus primarily on the engineering/IT role for CSE/AI students, while briefly noting the other tracks.
-   - Do NOT reduce the description to a single short sentence.
+     Role Overview:
+     (Platform / product details and technical context)
 
-4. KEY SKILLS:
+     Key Responsibilities:
+     • Bullet point 1
+     • Bullet point 2
+
+     Compensation & Progression:
+     (Details on evaluation, probation, stipend, and PPO full-time transition)
+
+5. KEY SKILLS:
    - Infer and list 5 to 8 concrete technical and domain skills required (e.g. ["Artificial Intelligence", "Cybersecurity", "API Integration", "Database Management", "QA & Testing", "Technical Documentation"]).
-   - NEVER leave key_skills empty.
+   - Plain text strings only. NEVER leave key_skills empty.
 
-5. SELECTION PROCESS:
-   - Extract every selection round/step in sequence as an array of strings.
-   - Include step titles and descriptions (e.g. ["Step 1: Online Evaluation Internship (2 weeks, remote)", "Step 2: Face-to-face interview at college/institute", "Step 3: Offer Letter with Stipend & PPO"]).
+6. SELECTION PROCESS:
+   - Extract every selection round/step in sequence as an array of plain text strings (e.g. ["Step 1: Online Evaluation Internship (2 weeks, remote)", "Step 2: Face-to-face interview at college/institute", "Step 3: Offer Letter with Stipend & PPO"]).
+   - No markdown bolding.
 
-6. APPLICATION DEADLINE & URL:
-   - Deadline: Extract the full deadline string with date and time (e.g. "18.09.2026 by 4.00 pm"). NEVER cut off at dots or commas.
+7. DEADLINE & URL:
+   - Deadline: Full deadline string with date and time (e.g. "18.09.2026 by 4.00 pm"). NEVER cut off at dots or commas.
    - Apply URL: Prefer official Google Form or application links (e.g. "https://forms.gle/...").
 
-7. ELIGIBLE BATCHES & PROGRAMMES:
-   - Batches: Extract the graduating passout year (e.g. ["2027"] from "2027 YOP"). Do NOT pull years from deadline dates like 18.09.2026.
-   - Programmes: Extract all mentioned degree programs (e.g. ["B.Tech CSE AIML", "B.Tech CSE DS", "B.Tech CSE", "BCA", "MCA", "B.Sc ANCS", "M.Sc ANCS", "BBA", "MBA"]).
+8. ELIGIBLE BATCHES:
+   - Extract the graduating passout year (e.g. ["2027"] from "2027 YOP"). Do NOT pull years from deadline dates like 18.09.2026.
 
-Output ONLY valid JSON matching the schema. No markdown ticks, no commentary.`;
+Output ONLY valid JSON matching the schema. No markdown ticks around the json.`;
 
-  const userPrompt = `Extract the job posting from this placement email and return a JSON object with exactly these fields:
+  const userPrompt = `Extract the job posting from this placement email into a JSON object:
 {
   "title": "Primary job title",
   "company": "Company name (NOT 'Dear Students')",
@@ -93,7 +175,7 @@ Output ONLY valid JSON matching the schema. No markdown ticks, no commentary.`;
   "eligible_batches": ["2027"],
   "eligible_programmes": ["B.Tech CSE AIML", "B.Tech CSE", ...],
   "min_cgpa": null or number,
-  "description": "Comprehensive role description with Overview, Key Responsibilities bullets, and PPO details",
+  "description": "Comprehensive plain text description with Role Overview, Key Responsibilities bullet points (using •), and Progression details. ABSOLUTELY NO MARKDOWN ASTERISKS (**).",
   "key_skills": ["Skill1", "Skill2", ...],
   "selection_process": ["Step 1: ...", "Step 2: ...", ...],
   "apply_url": "https://...",
@@ -108,8 +190,10 @@ ${text}`;
     "openai/gpt-oss-120b",  // Best quality reasoning & extraction
     "openai/gpt-oss-20b",   // Fast fallback
     "groq/compound",        // Groq compound model
-    "qwen/qwen3.8-27b",     // Last resort
+    "qwen/qwen3.8-27b",     // High reliability plain JSON
   ];
+
+  const errorDetails: string[] = [];
 
   for (const model of models) {
     try {
@@ -132,56 +216,74 @@ ${text}`;
       });
 
       if (!res.ok) {
-        const errBody = await res.text().catch(() => "");
-        console.warn(`Groq model ${model} failed (${res.status}):`, errBody);
+        const errText = await res.text().catch(() => "");
+        let errMsg = `HTTP ${res.status}`;
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj.error?.message) errMsg += ` (${errObj.error.message})`;
+        } catch {}
+        console.warn(`Groq model ${model} failed: ${errMsg}`);
+        errorDetails.push(`${model}: ${errMsg}`);
         continue;
       }
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
-      if (!content) continue;
+      if (!content) {
+        errorDetails.push(`${model}: empty choices content`);
+        continue;
+      }
 
       const cleanJson = content.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleanJson);
 
-      return sanitizeParseResult(parsed, model);
-    } catch (err) {
-      console.warn(`Groq API call failed for model ${model}:`, err);
+      return {
+        result: sanitizeParseResult(parsed, model),
+        errorDetails: [],
+      };
+    } catch (err: any) {
+      console.warn(`Groq model ${model} fetch error:`, err);
+      errorDetails.push(`${model}: ${err?.message || "Network Error"}`);
     }
   }
 
-  return null;
+  return { result: null, errorDetails };
 }
 
 function sanitizeParseResult(raw: any, modelName?: string): AIJobParseResult {
   const validTypes: JobType[] = ["Full-time", "Internship", "Co-op", "Contract"];
   const jobType: JobType = validTypes.includes(raw.job_type) ? raw.job_type : "Full-time";
 
-  // Guard against "Dear Students" slipping through
-  let company = (raw.company || "").trim();
+  let company = stripMarkdown((raw.company || "").trim());
   if (!company || /dear\s+students/i.test(company) || company.length < 2) {
     company = "Placement Drive";
   }
 
-  // Ensure clean 4-digit years for batches
   const batches = Array.isArray(raw.eligible_batches)
-    ? raw.eligible_batches.map(String).filter((b: string) => /^\d{4}$/.test(b.trim()))
+    ? raw.eligible_batches.map(String).map(stripMarkdown).filter((b: string) => /^\d{4}$/.test(b.trim()))
     : [];
 
   return {
-    title: raw.title || "Tech / Software Role",
+    title: stripMarkdown(raw.title || "Tech / Software Role"),
     company,
-    location: raw.location || "Remote / Pan-India",
+    location: stripMarkdown(raw.location || "Remote / Pan-India"),
     job_type: jobType,
-    ctc_package: raw.ctc_package || "",
+    ctc_package: stripMarkdown(raw.ctc_package || ""),
     eligible_batches: batches.length > 0 ? batches : ["2027"],
-    eligible_programmes: Array.isArray(raw.eligible_programmes) ? raw.eligible_programmes.map(String) : [],
+    eligible_programmes: Array.isArray(raw.eligible_programmes)
+      ? raw.eligible_programmes.map(String).map(stripMarkdown)
+      : [],
     min_cgpa: typeof raw.min_cgpa === "number" ? raw.min_cgpa : null,
-    description: raw.description || "",
-    key_skills: Array.isArray(raw.key_skills) && raw.key_skills.length > 0 ? raw.key_skills.map(String) : ["Problem Solving", "Core CS"],
-    selection_process: Array.isArray(raw.selection_process) ? raw.selection_process.map(String) : [],
-    apply_url: raw.apply_url || "",
-    deadline: raw.deadline || "",
+    description: stripMarkdown(raw.description || ""),
+    key_skills:
+      Array.isArray(raw.key_skills) && raw.key_skills.length > 0
+        ? raw.key_skills.map(String).map(stripMarkdown)
+        : ["Problem Solving", "Core CS"],
+    selection_process: Array.isArray(raw.selection_process)
+      ? raw.selection_process.map(String).map(stripMarkdown)
+      : [],
+    apply_url: (raw.apply_url || "").trim(),
+    deadline: stripMarkdown(raw.deadline || ""),
     _meta: {
       source: "ai",
       model: modelName || "Groq AI",
@@ -190,8 +292,7 @@ function sanitizeParseResult(raw: any, modelName?: string): AIJobParseResult {
 }
 
 // ── Smart Heuristic Fallback Parser ──────────────────────────────────────────
-// Used when the Groq API is unavailable, offline, or unconfigured.
-// Engineered specifically for Indian university placement drives & Brainware format.
+// Produces 100% clean plain-text output with no Markdown/MDX syntax.
 function fallbackHeuristicParser(text: string): AIJobParseResult {
   const lines = text
     .split("\n")
@@ -224,7 +325,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
   }
   if (!company || /dear\s+students/i.test(company)) company = "Placement Drive";
 
-  // 2. Application Deadline (Captures full date and time without truncating at periods)
+  // 2. Application Deadline
   let deadline = "";
   const dlMatch = text.match(/(?:[Dd]eadline|[Ll]ast\s+[Dd]ate)\s*[:\-–]?\s*([^\n\r]+)/i);
   if (dlMatch) {
@@ -236,7 +337,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
   const anyUrlMatch = text.match(/https?:\/\/(?!www\.google\.com\/groups)[^\s<>"')]+/i);
   const apply_url = formsMatch ? formsMatch[0] : (anyUrlMatch ? anyUrlMatch[0] : "");
 
-  // 4. CTC & Stipend (Extracts both stipend and full-time PPO package if present)
+  // 4. CTC & Stipend (Both if available)
   let ctc_package = "";
   const stipendMatch = text.match(/[Ss]tipend\s*[:\-–]?\s*(₹?[\d,]+(?:\.\d+)?\s*(?:per\s+month|\/month|pm)?)/i);
   const ppoMatch = text.match(/PPO\s*(?:Salary|CTC|Package)?\s*[:\-–]?\s*(₹?[\d,]+(?:\s*[-–]\s*₹?[\d,]+)?\s*(?:LPA|Lacs|Lakhs)?)/i);
@@ -260,7 +361,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     title = roleMatch ? roleMatch[1].trim() : "Tech / Software Role";
   }
 
-  // 6. Job Type (If PPO or permanent package is mentioned, classify as Full-time)
+  // 6. Job Type
   let job_type: JobType = "Full-time";
   if (ppoMatch || /PPO|Full[- ]time/i.test(text)) {
     job_type = "Full-time";
@@ -275,7 +376,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     location = locMatch[1].trim().replace(/\s*I\s*/g, " | ");
   }
 
-  // 8. Eligible Batches (Prioritize YOP e.g. "2027 YOP" instead of date years)
+  // 8. Eligible Batches
   let eligible_batches: string[] = [];
   const yopMatch = text.match(/\b(202\d)\s*(?:YOP|Batch|Passout|Graduat)/i);
   if (yopMatch) {
@@ -304,12 +405,13 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     .filter(([key]) => lowerText.includes(key))
     .map(([, val]) => val);
 
-  // 10. Selection Process (Extract actual steps from candidate selection block)
+  // 10. Selection Process (Clean plain text strings)
   let selection_process: string[] = [];
   const selIdx = text.search(/Candidate Selection Process|Selection Process|Selection Rounds/i);
   if (selIdx >= 0) {
     const selBlock = text.slice(selIdx, selIdx + 900);
-    const steps = Array.from(selBlock.matchAll(/(Step\s*\d+\s*:[^\n\r]+)/gi)).map(m => m[1].trim());
+    const steps = Array.from(selBlock.matchAll(/(Step\s*\d+\s*:[^\n\r]+)/gi))
+      .map(m => stripMarkdown(m[1].trim()));
     if (steps.length > 0) selection_process = steps;
   }
   if (selection_process.length === 0) {
@@ -320,7 +422,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     ];
   }
 
-  // 11. Key Skills (Infer from title, responsibilities, and tech mentions)
+  // 11. Key Skills (Clean plain text)
   const skillsSet = new Set<string>();
   if (/AI|Artificial Intelligence/i.test(title) || /core\s+Al/i.test(text)) skillsSet.add("AI & Machine Learning");
   if (/Cybersecurity|Security/i.test(text)) skillsSet.add("Cybersecurity");
@@ -335,29 +437,29 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     skillsSet.add("Computer Science Fundamentals");
     skillsSet.add("Problem Solving");
   }
-  const key_skills = Array.from(skillsSet);
+  const key_skills = Array.from(skillsSet).map(stripMarkdown);
 
-  // 12. Description & Responsibilities (Rich structure)
+  // 12. Description & Responsibilities (Clean plain text with NO MD syntax)
   const descParts: string[] = [];
   const descMatch = text.match(/[Jj]ob [Dd]escription\s*[:\-–]?\s*([^\n\r]+)/i);
   const respMatch = text.match(/Key Responsibilities\s*[:\-–]?([\s\S]*?)(?=(?:\d+\.|\n\n--|\nCandidate Selection|$))/i);
 
   if (descMatch) {
-    descParts.push(`**Role Overview:**\n${descMatch[1].trim()}`);
+    descParts.push(`Role Overview:\n${descMatch[1].trim()}`);
   }
   if (respMatch) {
     const bullets = respMatch[1]
       .split("\n")
       .map(l => l.trim())
       .filter(l => l.length > 5)
-      .map(l => (l.startsWith("-") ? l : `- ${l}`))
+      .map(l => (l.startsWith("•") ? l : `• ${l.replace(/^[\*\-]\s*/, "")}`))
       .join("\n");
     if (bullets) {
-      descParts.push(`**Key Responsibilities:**\n${bullets}`);
+      descParts.push(`Key Responsibilities:\n${bullets}`);
     }
   }
   if (ppoMatch || stipendMatch) {
-    descParts.push(`**Compensation & Progression:**\n${ctc_package || "Stipend during probation, followed by permanent placement."}`);
+    descParts.push(`Compensation & Progression:\n${ctc_package || "Stipend during probation, followed by permanent placement."}`);
   }
   if (descParts.length === 0) {
     const fwdIdx = text.indexOf("---------- Forwarded");
@@ -365,14 +467,14 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     descParts.push(src.slice(0, 600).trim());
   }
 
-  const description = descParts.join("\n\n");
+  const description = stripMarkdown(descParts.join("\n\n"));
 
   return {
-    title,
-    company,
-    location,
+    title: stripMarkdown(title),
+    company: stripMarkdown(company),
+    location: stripMarkdown(location),
     job_type,
-    ctc_package,
+    ctc_package: stripMarkdown(ctc_package),
     eligible_batches: eligible_batches.length > 0 ? eligible_batches : ["2027"],
     eligible_programmes: eligible_programmes.length > 0 ? eligible_programmes : ["B.Tech CSE AIML", "B.Tech CSE", "BCA", "MCA"],
     min_cgpa: null,
@@ -380,7 +482,7 @@ function fallbackHeuristicParser(text: string): AIJobParseResult {
     key_skills,
     selection_process,
     apply_url,
-    deadline,
+    deadline: stripMarkdown(deadline),
     _meta: {
       source: "heuristic",
     },

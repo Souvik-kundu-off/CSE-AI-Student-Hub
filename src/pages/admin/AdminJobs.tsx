@@ -10,7 +10,12 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { parseJobPostingWithAI } from "@/lib/ai-job-parser";
+import {
+  parseJobPostingWithAI,
+  getGroqApiKey,
+  setLocalGroqApiKey,
+  stripMarkdown,
+} from "@/lib/ai-job-parser";
 import { extractFileText } from "@/lib/pdf-extract";
 import { JobPosting, JobType, JobStatus, AIJobParseResult } from "@/types/job";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +64,7 @@ import {
   ShieldCheck,
   Info,
   AlertCircle,
+  Key,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -120,6 +126,13 @@ const AdminJobs = () => {
   // Unified form data (used for both preview-edit and manual form)
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [parseMeta, setParseMeta] = useState<AIJobParseResult["_meta"]>(undefined);
+
+  // Groq API Key state (detects env or saved browser key)
+  const hasEnvKey = Boolean(
+    (import.meta.env.VITE_GROQ_API_KEY as string) ||
+    (import.meta.env.VITE_GEOQ_API_KEY as string)
+  );
+  const [localApiKey, setLocalApiKey] = useState(() => getGroqApiKey());
 
   useEffect(() => { fetchJobs(); }, []);
 
@@ -495,6 +508,47 @@ const AdminJobs = () => {
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 You can provide <strong className="text-foreground">both</strong> the email text and a PDF — the AI will merge all sources, extract relevant job fields, and present them for your review before publishing.
               </p>
+            </div>
+
+            {/* Groq AI Engine Status & Key Override */}
+            <div className="p-3.5 bg-white/[0.03] border border-border/60 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                  <Key size={13} className="text-primary" /> Groq AI Engine
+                </span>
+                {hasEnvKey ? (
+                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Active (.env)
+                  </span>
+                ) : localApiKey ? (
+                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Active (Browser Key)
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertCircle size={10} /> Smart Offline Fallback Mode
+                  </span>
+                )}
+              </div>
+
+              {!hasEnvKey && (
+                <div className="space-y-1 pt-1">
+                  <Input
+                    type="password"
+                    placeholder="Paste Groq API key (gsk_...) to activate AI extraction immediately"
+                    value={localApiKey}
+                    onChange={e => {
+                      const val = e.target.value.trim();
+                      setLocalApiKey(val);
+                      setLocalGroqApiKey(val);
+                    }}
+                    className="bg-background/80 rounded-xl font-mono text-xs h-9"
+                  />
+                  <p className="text-[10px] text-muted-foreground/80 leading-relaxed">
+                    Vercel requires a <strong>Redeploy</strong> to bundle new environment variables into the site. If you added the key in Vercel settings and haven't redeployed yet, you can paste it above to use AI right away.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

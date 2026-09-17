@@ -28,6 +28,7 @@ import { JobPosting } from "@/types/job";
 import { safeFormatDate } from "@/lib/utils";
 import { ensureUrl } from "@/lib/utils-url";
 import { toast } from "sonner";
+import { stripMarkdown } from "@/lib/ai-job-parser";
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -177,7 +178,7 @@ const JobDetail = () => {
                 </h3>
 
                 <div className="prose prose-invert max-w-none text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {job.description}
+                  {stripMarkdown(job.description)}
                 </div>
               </div>
 
@@ -194,7 +195,7 @@ const JobDetail = () => {
                         <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
                           {index + 1}
                         </span>
-                        <span className="text-xs font-semibold leading-snug self-center">{step}</span>
+                        <span className="text-xs font-semibold leading-snug self-center">{stripMarkdown(step)}</span>
                       </div>
                     ))}
                   </div>
