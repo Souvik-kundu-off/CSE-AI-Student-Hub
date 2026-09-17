@@ -16,18 +16,13 @@ import {
   Briefcase,
   Search,
   MapPin,
-  Calendar,
   Clock,
-  ExternalLink,
   Loader2,
-  Building2,
   ShieldCheck,
   CheckCircle2,
-  Sparkles,
   ArrowUpRight,
   GraduationCap,
   IndianRupee,
-  Filter,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobPosting, JobType } from "@/types/job";
@@ -82,22 +77,19 @@ const Jobs = () => {
   return (
     <PageLayout>
       <div className="min-h-screen pb-20">
-        {/* Header Hero Section */}
-        <section className="relative pt-24 pb-16 border-b border-border/50 overflow-hidden bg-card/30 backdrop-blur-xl">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse" />
-
+        {/* Header */}
+        <section className="pt-24 pb-12 border-b border-border/50 bg-card/20">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[11px] font-bold uppercase tracking-widest text-primary mb-4">
-                  <Briefcase size={12} />
-                  University Placement Hub
-                </div>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-3">
-                  Campus <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-indigo-400 to-purple-400">Careers & Opportunities</span>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Briefcase size={12} /> Job Postings
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+                  Campus Placements & Opportunities
                 </h1>
-                <p className="text-muted-foreground text-sm sm:text-base max-w-2xl leading-relaxed">
-                  Structured job descriptions, eligibility criteria, and direct application links parsed directly from department placement drives.
+                <p className="text-muted-foreground text-sm max-w-2xl leading-relaxed">
+                  Job descriptions, eligibility criteria, and application links from department placement drives.
                 </p>
               </div>
 
@@ -154,9 +146,9 @@ const Jobs = () => {
         {/* Job Listings */}
         <section className="container mx-auto px-4 max-w-6xl py-12">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-30 space-y-4">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground animate-pulse font-medium">Fetching active placement drives...</p>
+            <div className="flex flex-col items-center justify-center py-28 space-y-3">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Loading job postings...</p>
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="text-center py-24 border border-dashed border-border/60 rounded-[32px] p-8 max-w-md mx-auto">

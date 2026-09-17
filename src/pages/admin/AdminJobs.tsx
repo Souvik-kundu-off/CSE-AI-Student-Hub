@@ -36,7 +36,7 @@ import {
 import {
   Briefcase,
   Plus,
-  Sparkles,
+  Wand2,
   Loader2,
   Trash2,
   Edit3,
@@ -57,6 +57,7 @@ import {
   Link2,
   CalendarDays,
   ShieldCheck,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -313,9 +314,9 @@ const AdminJobs = () => {
               onClick={() => {
                 setAiRawText(""); setAiFile(null); setModal("ai-input");
               }}
-              className="gap-2 rounded-xl bg-gradient-to-r from-primary via-indigo-500 to-purple-500 text-white font-bold shadow-lg shadow-primary/20"
+              className="gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold"
             >
-              <Sparkles size={16} /> Import with AI
+              <Wand2 size={16} /> Import with AI
             </Button>
             <Button
               variant="outline"
@@ -411,7 +412,7 @@ const AdminJobs = () => {
         <DialogContent className="max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <Sparkles className="text-primary w-5 h-5" /> AI Placement Importer
+              <Wand2 className="text-primary w-5 h-5" /> AI Placement Importer
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Paste the placement email text <strong>and / or</strong> upload the JD file (PDF, TXT).
@@ -478,7 +479,7 @@ const AdminJobs = () => {
 
             {/* Info note */}
             <div className="flex items-start gap-2.5 p-3 bg-primary/5 border border-primary/10 rounded-2xl">
-              <Sparkles size={14} className="text-primary mt-0.5 shrink-0" />
+              <Info size={14} className="text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 You can provide <strong className="text-foreground">both</strong> the email text and a PDF — the AI will merge all sources, extract relevant job fields, and present them for your review before publishing.
               </p>
@@ -494,7 +495,7 @@ const AdminJobs = () => {
             >
               {isExtracting
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Extracting...</>
-                : <><Sparkles size={16} /> Extract & Preview</>
+                : <><Wand2 size={16} /> Extract & Preview</>
               }
             </Button>
           </div>

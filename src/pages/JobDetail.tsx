@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Briefcase,
   MapPin,
-  Calendar,
   Clock,
   ExternalLink,
   Loader2,
@@ -20,7 +19,7 @@ import {
   AlertCircle,
   Share2,
   Download,
-  Sparkles,
+  Code2,
   Layers,
   Award,
 } from "lucide-react";
@@ -92,8 +91,7 @@ const JobDetail = () => {
           </button>
 
           {/* Hero Banner */}
-          <div className="bg-card border border-border/80 rounded-[32px] p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10" />
+          <div className="bg-card border border-border/80 rounded-[32px] p-6 sm:p-10 shadow-sm relative overflow-hidden">
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-start gap-5">
@@ -193,7 +191,7 @@ const JobDetail = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                     {job.selection_process.map((step, index) => (
                       <div key={index} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-start gap-3">
-                        <span className="w-7 h-7 rounded-xl bg-primary/20 text-primary font-black text-xs flex items-center justify-center shrink-0">
+                        <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
                           {index + 1}
                         </span>
                         <span className="text-xs font-semibold leading-snug self-center">{step}</span>
@@ -256,7 +254,7 @@ const JobDetail = () => {
               {job.key_skills && job.key_skills.length > 0 && (
                 <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm space-y-4">
                   <h3 className="text-base font-bold flex items-center gap-2 border-b border-border/50 pb-3">
-                    <Sparkles size={16} className="text-primary" /> Key Skills Required
+                    <Code2 size={16} className="text-primary" /> Key Skills Required
                   </h3>
 
                   <div className="flex flex-wrap gap-1.5">
