@@ -311,7 +311,7 @@ const AdminJobs = () => {
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={() => {
-                setAiRawText(""); setAiFile(null); setUploadedPdfUrl(""); setModal("ai-input");
+                setAiRawText(""); setAiFile(null); setModal("ai-input");
               }}
               className="gap-2 rounded-xl bg-gradient-to-r from-primary via-indigo-500 to-purple-500 text-white font-bold shadow-lg shadow-primary/20"
             >
